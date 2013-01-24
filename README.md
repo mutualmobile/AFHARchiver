@@ -12,7 +12,7 @@ The full spec has not been fully implemented yet, but basic timing information h
 
 ## How to use the HARchiver
 
-Using a HARChiver is as simple as creating an instance of it, and telling it to start. The archiver will archive requests as they come in directly to disk at the path you specify.
+Using a HARchiver is as simple as creating an instance of it, and telling it to start. The archiver will archive requests as they come in directly to disk at the path you specify.
 
 ``` objective-c
 	self.afArchiver = [[AFHTTPRequestOperationHARchiver alloc] initWithPath:path error:nil];
@@ -42,7 +42,7 @@ There is some advanced functionality that has not yet been implemented that will
 
 Follow Mutual Mobile on Twitter ([@MutualMobile](https://twitter.com/MutualMobile))
 
-### Creators
+### Creator
 
 [Kevin Harwood](http://github.com/kcharwood)  
 [@kevinharwood](https://twitter.com/kevinharwood)
