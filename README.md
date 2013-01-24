@@ -1,7 +1,7 @@
 AFHTTPRequestOperationHARchiver
 ===============================
 
-An [AFNetworking](https://github.com/AFNetworking/AFNetworking/) extension to automatically generate HTTP Archive files of all of your network requests!
+An [AFNetworking](https://github.com/AFNetworking/AFNetworking/) extension to automatically generate a HTTP Archive file of all of your network requests!
 
 ## Overview
 What is HTTPArchiving? It's a specification that allows you to store HTTP request/responses as well as meta data, and view that information at a later time to help with debugging.
