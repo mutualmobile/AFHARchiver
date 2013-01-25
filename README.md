@@ -6,7 +6,9 @@ An [AFNetworking](https://github.com/AFNetworking/AFNetworking/) extension to au
 ## Overview
 What is HTTP Archiving (HAR)? It's a specification that allows you to store HTTP request/responses as well as meta data, and view that information at a later time to help with debugging.
 
-You can find the HAR specification [here](http://www.softwareishard.com/blog/har-12-spec/), and you can find an online HAR viewer [here](http://www.softwareishard.com/har/viewer/). There is also a long list of tools that support the HAR format [here](http://www.softwareishard.com/blog/har-adopters/).
+You can find the HAR specification [here](http://www.softwareishard.com/blog/har-12-spec/), and you can find an online HAR viewer [here](http://www.softwareishard.com/har/viewer/). You can download a sample HAR log from [here](http://mutualmobile.github.com/AFHARchiver/files/01-16-2013_02_24_30_log.HAR) and drag it into the online viewer to take a look.
+
+There is also a long list of tools that support the HAR format [here](http://www.softwareishard.com/blog/har-adopters/).
 
 The full spec has not been fully implemented yet, but basic timing information has been included. By releasing this to the community, we are hopeful more advanced logging data will be implemented.
 
@@ -15,8 +17,8 @@ The full spec has not been fully implemented yet, but basic timing information h
 Using a HARchiver is as simple as creating an instance of it, and telling it to start. The archiver will archive requests as they come in directly to disk at the path you specify.
 
 ``` objective-c
-	self.afArchiver = [[AFHARchiver alloc] initWithPath:path error:nil];
-	[self.afArchiver startArchiving];
+self.afArchiver = [[AFHARchiver alloc] initWithPath:path error:nil];
+[self.afArchiver startArchiving];
 ```
 
 ## Archiving Specific Requests
@@ -24,9 +26,9 @@ Using a HARchiver is as simple as creating an instance of it, and telling it to 
 You will most likely run into a scenerio where you only want to archive specific requests. The most common use has been to ignore logging image files to prevent your archive from growing too large in size. You can use <tt>setShouldArchiveOperationBlock:</tt> to provide custom archiving behavior.
 
 ``` objective-c
-	[afArchvier setShouldArchiveOperationBlock:^BOOL(AFHTTPRequestOperation *operation) {
-            return !([operation isKindOfClass:[AFImageRequestOperation class]]);
-    }];
+[afArchvier setShouldArchiveOperationBlock:^BOOL(AFHTTPRequestOperation *operation) {
+	return !([operation isKindOfClass:[AFImageRequestOperation class]]);
+}];
 ```
 
 ## A Few TODO's
