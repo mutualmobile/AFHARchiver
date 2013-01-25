@@ -1,4 +1,4 @@
-// AFHTTPRequestOperationHARchiver.m
+// AFHARchiver.m
 //
 // Copyright (c) 2013 Mutual Mobile
 //
@@ -20,8 +20,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-#import "AFHTTPRequestOperationHARchiver.h"
-#import "AFURLConnectionOperation+HARchive.h"
+#import "AFHARchiver.h"
+#import "AFURLConnectionOperation+AFHARchiver.h"
 #import "AFImageRequestOperation.h"
 
 static dispatch_queue_t af_http_request_operation_archiving_queue;
@@ -33,20 +33,20 @@ static dispatch_queue_t http_request_operation_archiving_queue() {
     return af_http_request_operation_archiving_queue;
 }
 
-typedef BOOL (^AFHTTPRequestOperationHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * operation);
+typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * operation);
 
-@interface AFHTTPRequestOperationHARchiver ()
+@interface AFHARchiver ()
 @property (nonatomic,assign) BOOL isArchiving;
 @property (nonatomic,copy) NSString * filePath;
 @property (nonatomic,assign) unsigned long long filePosition;
 @property (nonatomic,assign) BOOL hasAddedOneEntry;
 @property (nonatomic,strong) NSString * creatorName;
 @property (nonatomic,strong) NSString * creatorVersion;
-@property (readwrite, nonatomic, copy) AFHTTPRequestOperationHARchiverShouldArchiveOperationBlock shouldArchiveOperationHandlerBlock;
+@property (readwrite, nonatomic, copy) AFHARchiverShouldArchiveOperationBlock shouldArchiveOperationHandlerBlock;
 
 @end
 
-@implementation AFHTTPRequestOperationHARchiver
+@implementation AFHARchiver
 
 -(id)initWithPath:(NSString*)filePath error:(NSError **)error{
     self = [self init];
@@ -130,10 +130,10 @@ typedef BOOL (^AFHTTPRequestOperationHARchiverShouldArchiveOperationBlock)(AFHTT
     [entry setValue:[NSNumber numberWithInt:operation.duration*1000] forKey:@"time"];
     
     //request [object] - Detailed info about the request.
-    [entry setValue:[AFHTTPRequestOperationHARchiver HTTPArchiveRequestDictionaryForOperation:operation] forKey:@"request"];
+    [entry setValue:[AFHARchiver HTTPArchiveRequestDictionaryForOperation:operation] forKey:@"request"];
     
     //response [object] - Detailed info about the response.
-    [entry setValue:[AFHTTPRequestOperationHARchiver HTTPArchiveResponseDictionaryForOperation:operation] forKey:@"response"];
+    [entry setValue:[AFHARchiver HTTPArchiveResponseDictionaryForOperation:operation] forKey:@"response"];
     
     //cache [object] - Info about cache usage.
     //@TODO: Determine how to use cache
@@ -323,7 +323,7 @@ typedef BOOL (^AFHTTPRequestOperationHARchiverShouldArchiveOperationBlock)(AFHTT
 
 -(void)archiveOperation:(AFHTTPRequestOperation *)operation{
     dispatch_async(http_request_operation_archiving_queue(), ^{
-        NSDictionary * dictonary = [AFHTTPRequestOperationHARchiver HTTPArchiveEntryDictionaryForOperation:operation];
+        NSDictionary * dictonary = [AFHARchiver HTTPArchiveEntryDictionaryForOperation:operation];
         NSData * JSONData = [NSJSONSerialization dataWithJSONObject:dictonary options:0 error:nil];
                 
         NSMutableData * mutableData = [NSMutableData data];

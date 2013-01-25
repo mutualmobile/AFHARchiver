@@ -1,10 +1,10 @@
-AFHTTPRequestOperationHARchiver
+AFHARchiver
 ===============================
 
 An [AFNetworking](https://github.com/AFNetworking/AFNetworking/) extension to automatically generate a HTTP Archive file of all of your network requests!
 
 ## Overview
-What is HTTPArchiving? It's a specification that allows you to store HTTP request/responses as well as meta data, and view that information at a later time to help with debugging.
+What is HTTP Archiving (HAR)? It's a specification that allows you to store HTTP request/responses as well as meta data, and view that information at a later time to help with debugging.
 
 You can find the HAR specification [here](http://www.softwareishard.com/blog/har-12-spec/), and you can find an online HAR viewer [here](http://www.softwareishard.com/har/viewer/). There is also a long list of tools that support the HAR format [here](http://www.softwareishard.com/blog/har-adopters/).
 
@@ -15,7 +15,7 @@ The full spec has not been fully implemented yet, but basic timing information h
 Using a HARchiver is as simple as creating an instance of it, and telling it to start. The archiver will archive requests as they come in directly to disk at the path you specify.
 
 ``` objective-c
-	self.afArchiver = [[AFHTTPRequestOperationHARchiver alloc] initWithPath:path error:nil];
+	self.afArchiver = [[AFHARchiver alloc] initWithPath:path error:nil];
 	[self.afArchiver startArchiving];
 ```
 

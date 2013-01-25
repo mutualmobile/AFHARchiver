@@ -20,7 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-#import "AFURLConnectionOperation+HARchive.h"
+#import "AFURLConnectionOperation+AFHARchiver.h"
 #import <objc/runtime.h>
 
 //In order to track down the start and end time of the request,
@@ -137,17 +137,17 @@ IMP af_impOfCallingMethod(id lookupObject, SEL selector)
 static char kAFHTTPArchiveConnectionStartTimeObjectKey;
 static char kAFHTTPArchiveConnectionEndTimeObjectKey;
 
-@interface AFURLConnectionOperation (_HARchive)
+@interface AFURLConnectionOperation (_AFHARchiver)
 @property (readwrite, nonatomic, strong, setter = af_setStartTime:) NSDate * af_startTime;
 @property (readwrite, nonatomic, strong, setter = af_setEndTime:) NSDate * af_endTime;
 @end
 
-@implementation AFURLConnectionOperation (_HARchive)
+@implementation AFURLConnectionOperation (_AFHARchiver)
 @dynamic af_startTime;
 @dynamic af_endTime;
 @end
 
-@implementation AFURLConnectionOperation (HARchive)
+@implementation AFURLConnectionOperation (AFHARchiver)
 
 - (NSDate* )af_startTime {
     return (NSDate *)objc_getAssociatedObject(self, &kAFHTTPArchiveConnectionStartTimeObjectKey);

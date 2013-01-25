@@ -1,4 +1,4 @@
-// AFURLConnectionOperation+HARchive.h
+// AFURLConnectionOperation+AFHARchiver.h
 //
 // Copyright (c) 2013 Mutual Mobile
 //
@@ -22,7 +22,7 @@
 
 #import "AFURLConnectionOperation.h"
 
-@interface AFURLConnectionOperation (HARchive)
+@interface AFURLConnectionOperation (AFHARchiver)
 
 @property (readonly,nonatomic,strong) NSDate * startTime;
 @property (readonly,nonatomic,strong) NSDate * endTime;

@@ -1,4 +1,4 @@
-// AFHTTPRequestOperationHARchiver.h
+// AFHARchiver.h
 //
 // Copyright (c) 2013 Mutual Mobile
 //
@@ -24,7 +24,7 @@
 #import "AFHTTPRequestOperation.h"
 
 /**
- `AFHTTPRequestOperationHARchiver` is a class for creating an HTTP Archive (HAR) file that can be used for logging information around specific requests. This class will listen for 'AFHTTPRequestOperations' to complete, and log them directly to disk.
+ `AFHARchiver` is a class for creating an HTTP Archive (HAR) file that can be used for logging information around specific requests. This class will listen for 'AFHTTPRequestOperations' to complete, and log them directly to disk.
  
  ## HTTP Archive
  
@@ -35,7 +35,7 @@
  The archiver will asynchronously archive data to disk as operations complete.
  
  */
-@interface AFHTTPRequestOperationHARchiver : NSObject
+@interface AFHARchiver : NSObject
 
 /**
  The file path for which the archive file should be stored. This must be set in the 'initWithPath:error:' method.
