@@ -39,7 +39,9 @@
 
 <p>What is HTTP Archiving (HAR)? It's a specification that allows you to store HTTP request/responses as well as meta data, and view that information at a later time to help with debugging.</p>
 
-<p>You can find the HAR specification <a href="http://www.softwareishard.com/blog/har-12-spec/">here</a>, and you can find an online HAR viewer <a href="http://www.softwareishard.com/har/viewer/">here</a>. There is also a long list of tools that support the HAR format <a href="http://www.softwareishard.com/blog/har-adopters/">here</a>.</p>
+<p>You can find the HAR specification <a href="http://www.softwareishard.com/blog/har-12-spec/">here</a>, and you can find an online HAR viewer <a href="http://www.softwareishard.com/har/viewer/">here</a>. You can download a sample HAR log from <a href="http://mutualmobile.github.com/AFHARchiver/files/01-16-2013_02_24_30_log.HAR">here</a> and drag it into the online viewer to take a look.</p>
+
+<p>There is also a long list of tools that support the HAR format <a href="http://www.softwareishard.com/blog/har-adopters/">here</a>.</p>
 
 <p>The full spec has not been fully implemented yet, but basic timing information has been included. By releasing this to the community, we are hopeful more advanced logging data will be implemented.</p>
 
@@ -47,17 +49,17 @@
 
 <p>Using a HARchiver is as simple as creating an instance of it, and telling it to start. The archiver will archive requests as they come in directly to disk at the path you specify.</p>
 
-<div class="highlight"><pre>    <span class="n">self</span><span class="p">.</span><span class="n">afArchiver</span> <span class="o">=</span> <span class="p">[[</span><span class="n">AFHARchiver</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithPath:</span><span class="n">path</span> <span class="nl">error:</span><span class="nb">nil</span><span class="p">];</span>
-    <span class="p">[</span><span class="n">self</span><span class="p">.</span><span class="n">afArchiver</span> <span class="n">startArchiving</span><span class="p">];</span>
+<div class="highlight"><pre><span class="n">self</span><span class="p">.</span><span class="n">afArchiver</span> <span class="o">=</span> <span class="p">[[</span><span class="n">AFHARchiver</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithPath:</span><span class="n">path</span> <span class="nl">error:</span><span class="nb">nil</span><span class="p">];</span>
+<span class="p">[</span><span class="n">self</span><span class="p">.</span><span class="n">afArchiver</span> <span class="n">startArchiving</span><span class="p">];</span>
 </pre></div>
 
 <h2>Archiving Specific Requests</h2>
 
 <p>You will most likely run into a scenerio where you only want to archive specific requests. The most common use has been to ignore logging image files to prevent your archive from growing too large in size. You can use <tt>setShouldArchiveOperationBlock:</tt> to provide custom archiving behavior.</p>
 
-<div class="highlight"><pre>    <span class="p">[</span><span class="n">afArchvier</span> <span class="nl">setShouldArchiveOperationBlock:</span><span class="o">^</span><span class="kt">BOOL</span><span class="p">(</span><span class="n">AFHTTPRequestOperation</span> <span class="o">*</span><span class="n">operation</span><span class="p">)</span> <span class="p">{</span>
-            <span class="k">return</span> <span class="o">!</span><span class="p">([</span><span class="n">operation</span> <span class="nl">isKindOfClass:</span><span class="p">[</span><span class="n">AFImageRequestOperation</span> <span class="n">class</span><span class="p">]]);</span>
-    <span class="p">}];</span>
+<div class="highlight"><pre><span class="p">[</span><span class="n">afArchvier</span> <span class="nl">setShouldArchiveOperationBlock:</span><span class="o">^</span><span class="kt">BOOL</span><span class="p">(</span><span class="n">AFHTTPRequestOperation</span> <span class="o">*</span><span class="n">operation</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="o">!</span><span class="p">([</span><span class="n">operation</span> <span class="nl">isKindOfClass:</span><span class="p">[</span><span class="n">AFImageRequestOperation</span> <span class="n">class</span><span class="p">]]);</span>
+<span class="p">}];</span>
 </pre></div>
 
 <h2>A Few TODO's</h2>
