@@ -17,7 +17,11 @@ The full spec has not been fully implemented yet, but basic timing information h
 Using a HARchiver is as simple as creating an instance of it, and telling it to start. The archiver will archive requests as they come in directly to disk at the path you specify.
 
 ``` objective-c
-self.afArchiver = [[AFHARchiver alloc] initWithPath:path error:nil];
+NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+NSString *documentsDirectory = [paths objectAtIndex:0];
+NSString *filePath = [documentsDirectory stringByAppendingPathComponent:@"log.har"];
+
+self.afArchiver = [[AFHARchiver alloc] initWithPath:filePath error:nil];
 [self.afArchiver startArchiving];
 ```
 
