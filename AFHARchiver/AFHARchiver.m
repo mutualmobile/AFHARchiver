@@ -54,9 +54,12 @@ typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * 
         [self setFilePath:filePath];
         
         NSString * appName = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleDisplayName"];
-        [self setCreatorName:appName];
+        if(appName)
+            [self setCreatorName:appName];
+        
         NSString * version = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"];
-        [self setCreatorVersion:version];
+        if(version)
+            [self setCreatorVersion:version];
         
         NSString * directoryPath = [filePath stringByDeletingLastPathComponent];
         
@@ -198,9 +201,6 @@ static void *AFHTTPRequestOperationArchivingStartDate = &AFHTTPRequestOperationA
 -(void)operationDidStart:(NSNotification*)notification{
     AFHTTPRequestOperation * operation = [notification object];
     objc_setAssociatedObject(operation, AFHTTPRequestOperationArchivingStartDate, [NSDate date], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    if([self shouldArchiveOperation:operation]){
-        
-    }
 }
 
 static void *AFHTTPRequestOperationArchivingEndDate = &AFHTTPRequestOperationArchivingEndDate;
@@ -216,7 +216,7 @@ static void *AFHTTPRequestOperationArchivingEndDate = &AFHTTPRequestOperationArc
 
 -(NSDictionary*)HTTPArchiveCreatorDictionary{
     
-    NSDictionary * creatorDictionary = @{@"name" : self.creatorName,@"version":self.creatorVersion,@"comment":@"HTTPArchive Created by AFNetworking+HAR"};
+    NSDictionary * creatorDictionary = @{@"name" : (self.creatorName!=nil ? self.creatorName:@"Unknown"),@"version":(self.creatorVersion!=nil?self.creatorVersion:@"Unknown"),@"comment":@"HTTPArchive Created by AFHARchiver"};
     
     return creatorDictionary;
 }
@@ -282,7 +282,7 @@ static void *AFHTTPRequestOperationArchivingEndDate = &AFHTTPRequestOperationArc
     [requestDictionary setValue:@-1 forKey:@"headersSize"];
     
     //bodySize [number] - Size of the request body (POST data payload) in bytes. Set to -1 if the info is not available.
-    [requestDictionary setValue:[NSNumber numberWithInt:[operation.request.HTTPBody length]] forKey:@"bodySize"];
+    [requestDictionary setValue:[NSNumber numberWithUnsignedInteger:[operation.request.HTTPBody length]] forKey:@"bodySize"];
     
     return [NSDictionary dictionaryWithDictionary:requestDictionary];
 }
@@ -291,7 +291,7 @@ static void *AFHTTPRequestOperationArchivingEndDate = &AFHTTPRequestOperationArc
     NSMutableDictionary * responseDictionary = [NSMutableDictionary dictionary];
     
     //status [number] - Response status.
-    [responseDictionary setValue:[NSNumber numberWithInt:operation.response.statusCode] forKey:@"status"];
+    [responseDictionary setValue:[NSNumber numberWithInteger:operation.response.statusCode] forKey:@"status"];
     
     //statusText [string] - Response status description.
     [responseDictionary setValue:[NSHTTPURLResponse localizedStringForStatusCode:operation.response.statusCode] forKey:@"statusText"];
@@ -314,7 +314,7 @@ static void *AFHTTPRequestOperationArchivingEndDate = &AFHTTPRequestOperationArc
     
     //content [object] - Details about the response body.
     NSMutableDictionary * contentDictionary = [NSMutableDictionary dictionary];
-    [contentDictionary setValue:[NSNumber numberWithInt:[operation.responseData length]] forKey:@"size"];
+    [contentDictionary setValue:[NSNumber numberWithUnsignedInteger:[operation.responseData length]] forKey:@"size"];
     NSString * contentType = [operation.response.allHeaderFields valueForKey:@"Content-Type"];
     if(contentType==nil)
         contentType = @"";
@@ -341,7 +341,7 @@ static void *AFHTTPRequestOperationArchivingEndDate = &AFHTTPRequestOperationArc
     [responseDictionary setValue:@-1 forKey:@"headersSize"];
     
     //bodySize [number] - Size of the received response body in bytes. Set to zero in case of responses coming from the cache (304). Set to -1 if the info is not available.
-    [responseDictionary setValue:[NSNumber numberWithInt:[operation.responseData length]] forKey:@"bodySize"];
+    [responseDictionary setValue:[NSNumber numberWithUnsignedInteger:[operation.responseData length]] forKey:@"bodySize"];
     
     return [NSDictionary dictionaryWithDictionary:responseDictionary];
 }
