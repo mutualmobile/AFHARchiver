@@ -50,7 +50,12 @@
         
         NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
         NSString *documentsDirectory = [paths objectAtIndex:0];
-        NSString *filePath = [documentsDirectory stringByAppendingPathComponent:@"log.har"];
+        
+        NSDateFormatter * df = [[NSDateFormatter alloc] init];
+        [df setDateFormat:@"yyyy-MM-dd_HH:mm:ss"];
+        NSString * fileName = [NSString stringWithFormat:@"%@_log.har",[df stringFromDate:[NSDate date]]];
+        
+        NSString *filePath = [documentsDirectory stringByAppendingPathComponent:fileName];
         
         self.afArchiver = [[AFHARchiver alloc] initWithPath:filePath error:nil];
         [self.afArchiver startArchiving];
@@ -89,7 +94,12 @@
         
         NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
         NSString *documentsDirectory = [paths objectAtIndex:0];
-        NSString *filePath = [documentsDirectory stringByAppendingPathComponent:@"log.har"];
+        
+        NSDateFormatter * df = [[NSDateFormatter alloc] init];
+        [df setDateFormat:@"yyyy-MM-dd_HH:mm:ss"];
+        NSString * fileName = [NSString stringWithFormat:@"%@_log.har",[df stringFromDate:[NSDate date]]];
+        
+        NSString *filePath = [documentsDirectory stringByAppendingPathComponent:fileName];
         
         self.afArchiver = [[AFHARchiver alloc] initWithPath:filePath error:nil];
         [self.afArchiver startArchiving];
