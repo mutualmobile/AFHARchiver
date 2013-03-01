@@ -21,8 +21,8 @@
 // THE SOFTWARE.
 
 #import "AFHARchiver.h"
-#import "AFURLConnectionOperation+AFHARchiver.h"
 #import "AFImageRequestOperation.h"
+#import <objc/runtime.h>
 
 static dispatch_queue_t af_http_request_operation_archiving_queue;
 static dispatch_queue_t http_request_operation_archiving_queue() {
@@ -90,15 +90,27 @@ typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * 
     if(self.isArchiving == NO){
         [[NSNotificationCenter defaultCenter]
          addObserver:self
+         selector:@selector(operationDidStart:)
+         name:AFNetworkingOperationDidStartNotification
+         object:nil];
+        
+        [[NSNotificationCenter defaultCenter]
+         addObserver:self
          selector:@selector(operationDidFinish:)
          name:AFNetworkingOperationDidFinishNotification
          object:nil];
+        
         self.isArchiving = YES;
     }
 }
 
 -(void)stopArchiving{
     if(self.isArchiving == YES){
+        [[NSNotificationCenter defaultCenter]
+         removeObserver:self
+         name:AFNetworkingOperationDidStartNotification
+         object:nil];
+        
         [[NSNotificationCenter defaultCenter]
          removeObserver:self
          name:AFNetworkingOperationDidFinishNotification
@@ -123,11 +135,18 @@ typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * 
     //startedDateTime [string] - Date and time stamp of the request start (ISO 8601 - YYYY-MM-DDThh:mm:ss.sTZD)
     NSDateFormatter * formatter = [[NSDateFormatter alloc] init];
     [formatter setDateFormat:@"yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'SSS'Z'"];
-    NSString *dateString = [formatter stringFromDate:operation.startTime];
+    
+    NSDate * startDate = objc_getAssociatedObject(operation, AFHTTPRequestOperationArchivingStartDate);
+    NSAssert(startDate, @"Start Date cannot be nil");
+    NSDate * endDate = objc_getAssociatedObject(operation, AFHTTPRequestOperationArchivingEndDate);
+    NSAssert(endDate, @"End Date cannot be nil");
+    NSTimeInterval duration = [endDate timeIntervalSinceDate:startDate];
+    
+    NSString *dateString = [formatter stringFromDate:startDate];
     [entry setValue:dateString forKey:@"startedDateTime"];
     
     //time [number] - Total elapsed time of the request in milliseconds. This is the sum of all timings available in the timings object (i.e. not including -1 values).
-    [entry setValue:[NSNumber numberWithInt:operation.duration*1000] forKey:@"time"];
+    [entry setValue:[NSNumber numberWithInt:duration*1000] forKey:@"time"];
     
     //request [object] - Detailed info about the request.
     [entry setValue:[AFHARchiver HTTPArchiveRequestDictionaryForOperation:operation] forKey:@"request"];
@@ -142,7 +161,7 @@ typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * 
     //timings [object] - Detailed timing info about request/response round trip.
     //@TODO: Determine how to properly time the request. Currently we are putting
     //       the entire time in the send bucket.
-    int durationInMS = operation.duration * 1000;
+    int durationInMS = duration * 1000;
     
     NSMutableDictionary * timingDictionary = [NSMutableDictionary dictionary];
     [timingDictionary setValue:@-1 forKey:@"blocked"];
@@ -174,8 +193,21 @@ typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * 
     return jsonData;
 }
 
+static void *AFHTTPRequestOperationArchivingStartDate = &AFHTTPRequestOperationArchivingStartDate;
+
+-(void)operationDidStart:(NSNotification*)notification{
+    AFHTTPRequestOperation * operation = [notification object];
+    objc_setAssociatedObject(operation, AFHTTPRequestOperationArchivingStartDate, [NSDate date], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    if([self shouldArchiveOperation:operation]){
+        
+    }
+}
+
+static void *AFHTTPRequestOperationArchivingEndDate = &AFHTTPRequestOperationArchivingEndDate;
+
 -(void)operationDidFinish:(NSNotification*)notification{
     AFHTTPRequestOperation * operation = [notification object];
+    objc_setAssociatedObject(operation, AFHTTPRequestOperationArchivingEndDate, [NSDate date], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     if([self shouldArchiveOperation:operation]){
         [self archiveOperation:operation];
     }
