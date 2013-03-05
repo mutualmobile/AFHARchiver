@@ -52,7 +52,7 @@
         NSString *documentsDirectory = [paths objectAtIndex:0];
         
         NSDateFormatter * df = [[NSDateFormatter alloc] init];
-        [df setDateFormat:@"yyyy-MM-dd_HH:mm:ss"];
+        [df setDateFormat:@"yyyy-MM-dd_HH-mm-ss"];
         NSString * fileName = [NSString stringWithFormat:@"%@_log.har",[df stringFromDate:[NSDate date]]];
         
         NSString *filePath = [documentsDirectory stringByAppendingPathComponent:fileName];
@@ -96,7 +96,7 @@
         NSString *documentsDirectory = [paths objectAtIndex:0];
         
         NSDateFormatter * df = [[NSDateFormatter alloc] init];
-        [df setDateFormat:@"yyyy-MM-dd_HH:mm:ss"];
+        [df setDateFormat:@"yyyy-MM-dd_HH-mm-ss"];
         NSString * fileName = [NSString stringWithFormat:@"%@_log.har",[df stringFromDate:[NSDate date]]];
         
         NSString *filePath = [documentsDirectory stringByAppendingPathComponent:fileName];
