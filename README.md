@@ -46,4 +46,4 @@ There is some advanced functionality that has not yet been implemented that will
 
 ## Credits
 
-Created by Kevin Harwood ([Email](kevin.harwood@mutualmobile.com)|[Twitter](https://twitter.com/kevinharwood)) at [Mutual Mobile](http://mutualmobile.com).
+Created by Kevin Harwood ([Email](kevin.harwood@mutualmobile.com) | [Twitter](https://twitter.com/kevinharwood)) at [Mutual Mobile](http://mutualmobile.com).
