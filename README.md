@@ -44,11 +44,6 @@ There is some advanced functionality that has not yet been implemented that will
 * Include redirect information in the **redirectURL** property.
 * Calculate the correct **headerSize**.
 
-## Contact
+## Credits
 
-Follow Mutual Mobile on Twitter ([@MutualMobile](https://twitter.com/MutualMobile))
-
-### Creator
-
-[Kevin Harwood](http://github.com/kcharwood)  
-[@kevinharwood](https://twitter.com/kevinharwood)
+Created by Kevin Harwood ([Email](kevin.harwood@mutualmobile.com)|[Twitter](https://twitter.com/kevinharwood)) at [Mutual Mobile](http://mutualmobile.com).
