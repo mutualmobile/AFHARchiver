@@ -146,15 +146,13 @@ static NSDictionary * AFHTTPArchiveResponseDictionaryForResponse(NSHTTPURLRespon
     return [NSDictionary dictionaryWithDictionary:responseDictionary];
 }
 
-static NSDictionary * AFHTTPArchiveEntryDictionaryForOperation(AFHTTPRequestOperation * operation){
+static NSDictionary * AFHTTPArchiveEntryDictionary(NSDate *startDate, NSDate *endDate, NSDictionary *requestDictionary, NSDictionary * responseDictionary){
     NSMutableDictionary * entry = [NSMutableDictionary dictionary];
     
     //startedDateTime [string] - Date and time stamp of the request start (ISO 8601 - YYYY-MM-DDThh:mm:ss.sTZD)
     NSDateFormatter * formatter = [[NSDateFormatter alloc] init];
     [formatter setDateFormat:@"yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'SSS'Z'"];
     
-    NSDate * startDate = objc_getAssociatedObject(operation, AFHTTPRequestOperationArchivingStartDate);
-    NSDate * endDate = objc_getAssociatedObject(operation, AFHTTPRequestOperationArchivingEndDate);
     NSTimeInterval duration = [endDate timeIntervalSinceDate:startDate];
     
     NSString *dateString = [formatter stringFromDate:startDate];
@@ -164,10 +162,10 @@ static NSDictionary * AFHTTPArchiveEntryDictionaryForOperation(AFHTTPRequestOper
     [entry setValue:[NSNumber numberWithInt:duration*1000] forKey:@"time"];
     
     //request [object] - Detailed info about the request.
-    [entry setValue:AFHTTPArchiveRequestDictionaryForRequest(operation.request) forKey:@"request"];
+    [entry setValue:requestDictionary forKey:@"request"];
     
     //response [object] - Detailed info about the response.
-    [entry setValue:AFHTTPArchiveResponseDictionaryForResponse(operation.response, operation.responseData) forKey:@"response"];
+    [entry setValue:responseDictionary forKey:@"response"];
     
     //cache [object] - Info about cache usage.
     //@TODO: Determine how to use cache
@@ -191,6 +189,24 @@ static NSDictionary * AFHTTPArchiveEntryDictionaryForOperation(AFHTTPRequestOper
     return [NSDictionary dictionaryWithDictionary:entry];
 }
 
+
+static NSDictionary * AFHTTPArchiveEntryDictionaryForOperation(AFHTTPRequestOperation * operation){
+    NSDate * startTime = objc_getAssociatedObject(operation, AFHTTPRequestOperationArchivingStartDate);
+    NSDate * endTime = objc_getAssociatedObject(operation, AFHTTPRequestOperationArchivingEndDate);
+    
+    NSDictionary *requestDictionary = AFHTTPArchiveRequestDictionaryForRequest(operation.request);
+    NSDictionary *responseDictionary = AFHTTPArchiveResponseDictionaryForResponse(operation.response, operation.responseData);
+    
+    return AFHTTPArchiveEntryDictionary(startTime,endTime,requestDictionary,responseDictionary);
+}
+
+static NSDictionary * AFHTTPArchiveEntryDictionaryForTask(NSURLSessionTask *task, NSDate *startTime, NSDate *endTime){
+    NSDictionary *requestDictionary = AFHTTPArchiveRequestDictionaryForRequest(task.originalRequest);
+    NSDictionary *responseDictionary = AFHTTPArchiveResponseDictionaryForResponse((NSHTTPURLResponse*)task.response, nil);
+    
+    return AFHTTPArchiveEntryDictionary(startTime,endTime,requestDictionary,responseDictionary);
+}
+
 static dispatch_queue_t af_http_request_operation_archiving_queue;
 static dispatch_queue_t http_request_operation_archiving_queue() {
     if (af_http_request_operation_archiving_queue == NULL) {
@@ -210,8 +226,12 @@ typedef BOOL (^AFHARchiverShouldARchiveTaskBlock)(NSURLSessionTask * task);
 @property (nonatomic,assign) BOOL hasAddedOneEntry;
 @property (nonatomic,strong) NSString * creatorName;
 @property (nonatomic,strong) NSString * creatorVersion;
+
 @property (readwrite, nonatomic, copy) AFHARchiverShouldArchiveOperationBlock shouldArchiveOperationHandlerBlock;
 @property (readwrite, nonatomic, copy) AFHARchiverShouldARchiveTaskBlock shouldArchiveTaskHandlerBlock;
+
+@property (nonatomic,strong) NSMutableDictionary * taskStartTimeTrackingTable;
+@property (nonatomic,strong) NSMutableDictionary * taskEndTimeTrackingTable;
 
 @end
 
@@ -220,6 +240,8 @@ typedef BOOL (^AFHARchiverShouldARchiveTaskBlock)(NSURLSessionTask * task);
 -(id)initWithPath:(NSString*)filePath error:(NSError **)error{
     self = [self init];
     if(self){
+        self.taskStartTimeTrackingTable = [NSMutableDictionary dictionary];
+        self.taskEndTimeTrackingTable = [NSMutableDictionary dictionary];
         
         [self setFilePath:filePath];
         
@@ -273,6 +295,18 @@ typedef BOOL (^AFHARchiverShouldARchiveTaskBlock)(NSURLSessionTask * task);
          name:AFNetworkingOperationDidFinishNotification
          object:nil];
         
+        [[NSNotificationCenter defaultCenter]
+         addObserver:self
+         selector:@selector(taskDidStart:)
+         name:AFNetworkingTaskDidStartNotification
+         object:nil];
+        
+        [[NSNotificationCenter defaultCenter]
+         addObserver:self
+         selector:@selector(taskDidFinish:)
+         name:AFNetworkingTaskDidFinishNotification
+         object:nil];
+        
         self.isArchiving = YES;
     }
 }
@@ -288,6 +322,17 @@ typedef BOOL (^AFHARchiverShouldARchiveTaskBlock)(NSURLSessionTask * task);
          removeObserver:self
          name:AFNetworkingOperationDidFinishNotification
          object:nil];
+        
+        [[NSNotificationCenter defaultCenter]
+         removeObserver:self
+         name:AFNetworkingTaskDidStartNotification
+         object:nil];
+        
+        [[NSNotificationCenter defaultCenter]
+         removeObserver:self
+         name:AFNetworkingTaskDidFinishNotification
+         object:nil];
+        
         self.isArchiving = NO;
     }
 }
@@ -301,8 +346,9 @@ typedef BOOL (^AFHARchiverShouldARchiveTaskBlock)(NSURLSessionTask * task);
 }
 
 -(void)dealloc{
-    if(self.isArchiving == YES)
+    if(self.isArchiving == YES){
         [self stopArchiving];
+    }
 }
 
 #pragma mark - Private Class Methods
@@ -323,19 +369,6 @@ typedef BOOL (^AFHARchiverShouldARchiveTaskBlock)(NSURLSessionTask * task);
     NSData *jsonData = [NSJSONSerialization dataWithJSONObject:harDictionary options:0 error:nil];
     
     return jsonData;
-}
-
--(void)operationDidStart:(NSNotification*)notification{
-    AFHTTPRequestOperation * operation = [notification object];
-    objc_setAssociatedObject(operation, AFHTTPRequestOperationArchivingStartDate, [NSDate date], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-}
-
--(void)operationDidFinish:(NSNotification*)notification{
-    AFHTTPRequestOperation * operation = [notification object];
-    objc_setAssociatedObject(operation, AFHTTPRequestOperationArchivingEndDate, [NSDate date], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    if([self shouldArchiveOperation:operation]){
-        [self archiveOperation:operation];
-    }
 }
 
 -(NSDictionary*)HTTPArchiveCreatorDictionary{
@@ -376,7 +409,58 @@ typedef BOOL (^AFHARchiverShouldARchiveTaskBlock)(NSURLSessionTask * task);
     });
 }
 
-#pragma mark - Private Operation Conversion Methods
+#pragma mark - Private NSURLSessionTask Methods
+-(void)taskDidStart:(NSNotification*)notification{
+    NSURLSessionTask * task = [notification object];
+    NSString * taskID = [NSString stringWithFormat:@"%d",[task taskIdentifier]];
+    if(![self.taskStartTimeTrackingTable valueForKey:taskID]){
+        [self.taskStartTimeTrackingTable setValue:[NSDate date] forKey:taskID];
+    }
+}
+
+-(void)taskDidFinish:(NSNotification*)notification{
+    NSURLSessionTask * task = [notification object];
+    NSString * taskID = [NSString stringWithFormat:@"%d",[task taskIdentifier]];
+    [self.taskEndTimeTrackingTable setValue:[NSDate date] forKey:taskID];
+    if([self shouldArchiveTask:task]){
+        [self archiveTask:task];
+    }
+    
+    [self.taskEndTimeTrackingTable removeObjectForKey:taskID];
+    [self.taskStartTimeTrackingTable removeObjectForKey:taskID];
+}
+
+-(BOOL)shouldArchiveTask:(NSURLSessionTask*)task{
+    if(self.shouldArchiveTaskHandlerBlock){
+        return self.shouldArchiveTaskHandlerBlock(task);
+    }
+    else {
+        return YES;
+    }
+}
+
+-(void)archiveTask:(NSURLSessionTask*)task{
+    NSString * taskID = [NSString stringWithFormat:@"%d",[task taskIdentifier]];
+    NSDate * startTime = [self.taskStartTimeTrackingTable valueForKey:taskID];
+    NSDate * endTime = [self.taskEndTimeTrackingTable valueForKey:taskID];
+    NSDictionary * dictionary = AFHTTPArchiveEntryDictionaryForTask(task, startTime, endTime);
+    [self archiveHTTPArchiveDictionary:dictionary];
+}
+
+#pragma mark - Private AFHTTPRequestOperation Methods
+-(void)operationDidStart:(NSNotification*)notification{
+    AFHTTPRequestOperation * operation = [notification object];
+    objc_setAssociatedObject(operation, AFHTTPRequestOperationArchivingStartDate, [NSDate date], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+-(void)operationDidFinish:(NSNotification*)notification{
+    AFHTTPRequestOperation * operation = [notification object];
+    objc_setAssociatedObject(operation, AFHTTPRequestOperationArchivingEndDate, [NSDate date], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    if([self shouldArchiveOperation:operation]){
+        [self archiveOperation:operation];
+    }
+}
+
 +(NSDictionary*)HTTPArchiveRequestDictionaryForOperation:(AFHTTPRequestOperation*)operation{
     return AFHTTPArchiveRequestDictionaryForRequest(operation.request);
 }
@@ -393,8 +477,8 @@ typedef BOOL (^AFHARchiverShouldARchiveTaskBlock)(NSURLSessionTask * task);
 }
 
 -(void)archiveOperation:(AFHTTPRequestOperation *)operation{
-    NSDictionary * dictonary = AFHTTPArchiveEntryDictionaryForOperation(operation);
-    [self archiveHTTPArchiveDictionary:dictonary];
+    NSDictionary * dictionary = AFHTTPArchiveEntryDictionaryForOperation(operation);
+    [self archiveHTTPArchiveDictionary:dictionary];
 }
 
 @end

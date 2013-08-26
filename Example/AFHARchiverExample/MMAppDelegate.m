@@ -49,7 +49,6 @@
     [self.afArchiver
      setShouldArchiveOperationBlock:^BOOL(AFHTTPRequestOperation *operation) {
          AFHTTPSerializer * responseSerializer = (AFHTTPSerializer*)operation.responseSerializer;
-         NSLog(@"%@",NSStringFromClass([responseSerializer class]));
          return ![responseSerializer isKindOfClass:[AFImageSerializer class]];
      }];
     [self.afArchiver startArchiving];
