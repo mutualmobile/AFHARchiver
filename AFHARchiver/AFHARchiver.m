@@ -24,6 +24,173 @@
 #import "AFImageRequestOperation.h"
 #import <objc/runtime.h>
 
+static void *AFHTTPRequestOperationArchivingStartDate = &AFHTTPRequestOperationArchivingStartDate;
+static void *AFHTTPRequestOperationArchivingEndDate = &AFHTTPRequestOperationArchivingEndDate;
+
+static NSDictionary * AFHTTPArchiveRequestDictionaryForRequest(NSURLRequest *request){
+    NSMutableDictionary * requestDictionary = [NSMutableDictionary dictionary];
+    
+    //method [string] - Request method (GET, POST, ...).
+    [requestDictionary setValue:request.HTTPMethod forKey:@"method"];
+    
+    //url [string] - Absolute URL of the request (fragments are not included).
+    [requestDictionary setValue:[request.URL absoluteString] forKey:@"url"];
+    
+    //httpVersion [string] - Request HTTP Version.
+    [requestDictionary setValue:@"HTTP/1.1" forKey:@"httpVersion"];
+    
+    //cookies [array] - List of cookie objects.
+    //@TODO: Determine how to use request cookies
+    [requestDictionary setValue:[NSArray array] forKey:@"cookies"];
+    
+    //headers [array] - List of header objects.
+    NSMutableArray * headerFieldsArray = [NSMutableArray array];
+    [request.allHTTPHeaderFields
+     enumerateKeysAndObjectsUsingBlock:^(NSString * name, NSString * value, BOOL *stop) {
+         NSDictionary * headerDictionary = @{@"name":name,@"value":value,@"comment":@""};
+         [headerFieldsArray addObject:headerDictionary];
+     }];
+    [requestDictionary setValue:[NSArray arrayWithArray:headerFieldsArray] forKey:@"headers"];
+    
+    //queryString [array] - List of query parameter objects.
+    NSString * fullQueryString = request.URL.query;
+    NSArray * splitQueryString = [fullQueryString componentsSeparatedByString:@"&"];
+    NSMutableArray * queryArray = [NSMutableArray array];
+    if(splitQueryString){
+        [splitQueryString enumerateObjectsUsingBlock:
+         ^(NSString * singleQueryString, NSUInteger idx, BOOL *stop) {
+             NSArray * queryComponents = [singleQueryString componentsSeparatedByString:@"="];
+             if([queryComponents count]==2){
+                 NSString * name = [queryComponents objectAtIndex:0];
+                 NSString * value = [queryComponents objectAtIndex:1];
+                 NSDictionary * query = @{@"name":name,@"value":value,@"comment":@""};
+                 [queryArray addObject:query];
+             }
+         }];
+    }
+    [requestDictionary setValue:[NSArray arrayWithArray:queryArray] forKey:@"queryString"];
+    
+    //postData [object, optional] - Posted data info.
+    if(request.HTTPBody!=nil){
+        NSString * contentType = [request.allHTTPHeaderFields valueForKey:@"Content-Type"];
+        NSMutableDictionary * postDataDictionary = [NSMutableDictionary dictionary];
+        [postDataDictionary setValue:contentType forKey:@"mimeType"];
+        //@TODO: Determine how to use params array
+        [postDataDictionary setValue:[NSArray array] forKey:@"params"];
+        NSString * postString = [[NSString alloc] initWithData:request.HTTPBody encoding:NSUTF8StringEncoding];
+        [postDataDictionary setValue:postString forKey:@"text"];
+        [requestDictionary setValue:[NSDictionary dictionaryWithDictionary:postDataDictionary] forKey:@"postData"];
+    }
+    
+    //headersSize [number] - Total number of bytes from the start of the HTTP request message until (and including) the double CRLF before the body. Set to -1 if the info is not available.
+    //@TODO: Determine how to calculate headersSize
+    [requestDictionary setValue:@-1 forKey:@"headersSize"];
+    
+    //bodySize [number] - Size of the request body (POST data payload) in bytes. Set to -1 if the info is not available.
+    [requestDictionary setValue:[NSNumber numberWithUnsignedInteger:[request.HTTPBody length]] forKey:@"bodySize"];
+    
+    return [NSDictionary dictionaryWithDictionary:requestDictionary];
+}
+
+static NSDictionary * AFHTTPArchiveResponseDictionaryForResponse(NSHTTPURLResponse *response, NSData *responseData){
+    NSMutableDictionary * responseDictionary = [NSMutableDictionary dictionary];
+    
+    //status [number] - Response status.
+    [responseDictionary setValue:[NSNumber numberWithInteger:response.statusCode] forKey:@"status"];
+    
+    //statusText [string] - Response status description.
+    [responseDictionary setValue:[NSHTTPURLResponse localizedStringForStatusCode:response.statusCode] forKey:@"statusText"];
+    
+    //httpVersion [string] - Request HTTP Version.
+    [responseDictionary setValue:@"HTTP/1.1" forKey:@"httpVersion"];
+    
+    //cookies [array] - List of cookie objects.
+    //@TODO: Determine how to use response cookies
+    [responseDictionary setValue:[NSArray array] forKey:@"cookies"];
+    
+    //headers [array] - List of header objects.
+    NSMutableArray * headerFieldsArray = [NSMutableArray array];
+    [response.allHeaderFields
+     enumerateKeysAndObjectsUsingBlock:^(NSString * name, NSString * value, BOOL *stop) {
+         NSDictionary * headerDictionary = @{@"name":name,@"value":value,@"comment":@""};
+         [headerFieldsArray addObject:headerDictionary];
+     }];
+    [responseDictionary setValue:[NSArray arrayWithArray:headerFieldsArray] forKey:@"headers"];
+    
+    //content [object] - Details about the response body.
+    NSMutableDictionary * contentDictionary = [NSMutableDictionary dictionary];
+    [contentDictionary setValue:[NSNumber numberWithUnsignedInteger:[responseData length]] forKey:@"size"];
+    NSString * contentType = [response.allHeaderFields valueForKey:@"Content-Type"];
+    if(contentType==nil){
+        contentType = @"";
+    }
+    [contentDictionary setValue:contentType forKey:@"mimeType"];
+    if(responseData){
+        //@TODO How should better handle not text data?
+        NSString * string = [[NSString alloc] initWithData:responseData encoding:NSUTF8StringEncoding];
+        [contentDictionary setValue:string forKey:@"text"];
+    }
+    [responseDictionary setValue:[NSDictionary dictionaryWithDictionary:contentDictionary] forKey:@"content"];
+    
+    //redirectURL [string] - Redirection target URL from the Location response header.
+    //@TODO: Determine if we should be using redirectURL?
+    [responseDictionary setValue:@"" forKey:@"redirectURL"];
+    
+    //headersSize [number]* - Total number of bytes from the start of the HTTP response message until (and including) the double CRLF before the body. Set to -1 if the info is not available.
+    //@TODO: Determine how to calculate headersSize
+    [responseDictionary setValue:@-1 forKey:@"headersSize"];
+    
+    //bodySize [number] - Size of the received response body in bytes. Set to zero in case of responses coming from the cache (304). Set to -1 if the info is not available.
+    [responseDictionary setValue:[NSNumber numberWithUnsignedInteger:[responseData length]] forKey:@"bodySize"];
+    
+    return [NSDictionary dictionaryWithDictionary:responseDictionary];
+}
+
+static NSDictionary * AFHTTPArchiveEntryDictionaryForOperation(AFHTTPRequestOperation * operation){
+    NSMutableDictionary * entry = [NSMutableDictionary dictionary];
+    
+    //startedDateTime [string] - Date and time stamp of the request start (ISO 8601 - YYYY-MM-DDThh:mm:ss.sTZD)
+    NSDateFormatter * formatter = [[NSDateFormatter alloc] init];
+    [formatter setDateFormat:@"yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'SSS'Z'"];
+    
+    NSDate * startDate = objc_getAssociatedObject(operation, AFHTTPRequestOperationArchivingStartDate);
+    NSDate * endDate = objc_getAssociatedObject(operation, AFHTTPRequestOperationArchivingEndDate);
+    NSTimeInterval duration = [endDate timeIntervalSinceDate:startDate];
+    
+    NSString *dateString = [formatter stringFromDate:startDate];
+    [entry setValue:dateString forKey:@"startedDateTime"];
+    
+    //time [number] - Total elapsed time of the request in milliseconds. This is the sum of all timings available in the timings object (i.e. not including -1 values).
+    [entry setValue:[NSNumber numberWithInt:duration*1000] forKey:@"time"];
+    
+    //request [object] - Detailed info about the request.
+    [entry setValue:AFHTTPArchiveRequestDictionaryForRequest(operation.request) forKey:@"request"];
+    
+    //response [object] - Detailed info about the response.
+    [entry setValue:AFHTTPArchiveResponseDictionaryForResponse(operation.response, operation.responseData) forKey:@"response"];
+    
+    //cache [object] - Info about cache usage.
+    //@TODO: Determine how to use cache
+    [entry setValue:[NSDictionary dictionary] forKey:@"cache"];
+    
+    //timings [object] - Detailed timing info about request/response round trip.
+    //@TODO: Determine how to properly time the request. Currently we are putting
+    //       the entire time in the send bucket.
+    int durationInMS = duration * 1000;
+    
+    NSMutableDictionary * timingDictionary = [NSMutableDictionary dictionary];
+    [timingDictionary setValue:@-1 forKey:@"blocked"];
+    [timingDictionary setValue:@-1 forKey:@"dns"];
+    [timingDictionary setValue:@0 forKey:@"connect"];
+    [timingDictionary setValue:[NSNumber numberWithInt:durationInMS] forKey:@"send"];
+    [timingDictionary setValue:@0 forKey:@"wait"];
+    [timingDictionary setValue:@0 forKey:@"receive"];
+    [timingDictionary setValue:@-1 forKey:@"ssl"];
+    [entry setValue:timingDictionary forKey:@"timings"];
+    
+    return [NSDictionary dictionaryWithDictionary:entry];
+}
+
 static dispatch_queue_t af_http_request_operation_archiving_queue;
 static dispatch_queue_t http_request_operation_archiving_queue() {
     if (af_http_request_operation_archiving_queue == NULL) {
@@ -34,6 +201,7 @@ static dispatch_queue_t http_request_operation_archiving_queue() {
 }
 
 typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * operation);
+typedef BOOL (^AFHARchiverShouldARchiveTaskBlock)(NSURLSessionTask * task);
 
 @interface AFHARchiver ()
 @property (nonatomic,assign) BOOL isArchiving;
@@ -43,6 +211,7 @@ typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * 
 @property (nonatomic,strong) NSString * creatorName;
 @property (nonatomic,strong) NSString * creatorVersion;
 @property (readwrite, nonatomic, copy) AFHARchiverShouldArchiveOperationBlock shouldArchiveOperationHandlerBlock;
+@property (readwrite, nonatomic, copy) AFHARchiverShouldARchiveTaskBlock shouldArchiveTaskHandlerBlock;
 
 @end
 
@@ -51,6 +220,7 @@ typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * 
 -(id)initWithPath:(NSString*)filePath error:(NSError **)error{
     self = [self init];
     if(self){
+        
         [self setFilePath:filePath];
         
         NSString * appName = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleDisplayName"];
@@ -126,58 +296,17 @@ typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * 
     self.shouldArchiveOperationHandlerBlock = block;
 }
 
+-(void)setShouldArchiveTaskBlock:(BOOL (^)(NSURLSessionTask *))block{
+    self.shouldArchiveTaskHandlerBlock = block;
+}
+
 -(void)dealloc{
     if(self.isArchiving == YES)
         [self stopArchiving];
 }
 
 #pragma mark - Private Class Methods
-+(NSDictionary*)HTTPArchiveEntryDictionaryForOperation:(AFHTTPRequestOperation*)operation{
-    NSMutableDictionary * entry = [NSMutableDictionary dictionary];
-    
-    //startedDateTime [string] - Date and time stamp of the request start (ISO 8601 - YYYY-MM-DDThh:mm:ss.sTZD)
-    NSDateFormatter * formatter = [[NSDateFormatter alloc] init];
-    [formatter setDateFormat:@"yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'SSS'Z'"];
-    
-    NSDate * startDate = objc_getAssociatedObject(operation, AFHTTPRequestOperationArchivingStartDate);
-    NSAssert(startDate, @"Start Date cannot be nil");
-    NSDate * endDate = objc_getAssociatedObject(operation, AFHTTPRequestOperationArchivingEndDate);
-    NSAssert(endDate, @"End Date cannot be nil");
-    NSTimeInterval duration = [endDate timeIntervalSinceDate:startDate];
-    
-    NSString *dateString = [formatter stringFromDate:startDate];
-    [entry setValue:dateString forKey:@"startedDateTime"];
-    
-    //time [number] - Total elapsed time of the request in milliseconds. This is the sum of all timings available in the timings object (i.e. not including -1 values).
-    [entry setValue:[NSNumber numberWithInt:duration*1000] forKey:@"time"];
-    
-    //request [object] - Detailed info about the request.
-    [entry setValue:[AFHARchiver HTTPArchiveRequestDictionaryForOperation:operation] forKey:@"request"];
-    
-    //response [object] - Detailed info about the response.
-    [entry setValue:[AFHARchiver HTTPArchiveResponseDictionaryForOperation:operation] forKey:@"response"];
-    
-    //cache [object] - Info about cache usage.
-    //@TODO: Determine how to use cache
-    [entry setValue:[NSDictionary dictionary] forKey:@"cache"];
-    
-    //timings [object] - Detailed timing info about request/response round trip.
-    //@TODO: Determine how to properly time the request. Currently we are putting
-    //       the entire time in the send bucket.
-    int durationInMS = duration * 1000;
-    
-    NSMutableDictionary * timingDictionary = [NSMutableDictionary dictionary];
-    [timingDictionary setValue:@-1 forKey:@"blocked"];
-    [timingDictionary setValue:@-1 forKey:@"dns"];
-    [timingDictionary setValue:@0 forKey:@"connect"];
-    [timingDictionary setValue:[NSNumber numberWithInt:durationInMS] forKey:@"send"];
-    [timingDictionary setValue:@0 forKey:@"wait"];
-    [timingDictionary setValue:@0 forKey:@"receive"];
-    [timingDictionary setValue:@-1 forKey:@"ssl"];
-    [entry setValue:timingDictionary forKey:@"timings"];
-    
-    return [NSDictionary dictionaryWithDictionary:entry];
-}
+
 
 #pragma mark - Private Instance Methods
 -(NSData*)HTTPArchiveJSONData{
@@ -196,14 +325,10 @@ typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * 
     return jsonData;
 }
 
-static void *AFHTTPRequestOperationArchivingStartDate = &AFHTTPRequestOperationArchivingStartDate;
-
 -(void)operationDidStart:(NSNotification*)notification{
     AFHTTPRequestOperation * operation = [notification object];
     objc_setAssociatedObject(operation, AFHTTPRequestOperationArchivingStartDate, [NSDate date], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
-
-static void *AFHTTPRequestOperationArchivingEndDate = &AFHTTPRequestOperationArchivingEndDate;
 
 -(void)operationDidFinish:(NSNotification*)notification{
     AFHTTPRequestOperation * operation = [notification object];
@@ -213,7 +338,6 @@ static void *AFHTTPRequestOperationArchivingEndDate = &AFHTTPRequestOperationArc
     }
 }
 
-
 -(NSDictionary*)HTTPArchiveCreatorDictionary{
     
     NSDictionary * creatorDictionary = @{@"name" : (self.creatorName!=nil ? self.creatorName:@"Unknown"),@"version":(self.creatorVersion!=nil?self.creatorVersion:@"Unknown"),@"comment":@"HTTPArchive Created by AFHARchiver"};
@@ -221,143 +345,10 @@ static void *AFHTTPRequestOperationArchivingEndDate = &AFHTTPRequestOperationArc
     return creatorDictionary;
 }
 
-#pragma mark Private Operation Conversion Methods
-+(NSDictionary*)HTTPArchiveRequestDictionaryForOperation:(AFHTTPRequestOperation*)operation{
-    NSMutableDictionary * requestDictionary = [NSMutableDictionary dictionary];
-    
-    //method [string] - Request method (GET, POST, ...).
-    [requestDictionary setValue:operation.request.HTTPMethod forKey:@"method"];
-    
-    //url [string] - Absolute URL of the request (fragments are not included).
-    [requestDictionary setValue:[operation.request.URL absoluteString] forKey:@"url"];
-    
-    //httpVersion [string] - Request HTTP Version.
-    [requestDictionary setValue:@"HTTP/1.1" forKey:@"httpVersion"];
-    
-    //cookies [array] - List of cookie objects.
-    //@TODO: Determine how to use request cookies
-    [requestDictionary setValue:[NSArray array] forKey:@"cookies"];
-    
-    //headers [array] - List of header objects.
-    NSMutableArray * headerFieldsArray = [NSMutableArray array];
-    [operation.request.allHTTPHeaderFields
-     enumerateKeysAndObjectsUsingBlock:^(NSString * name, NSString * value, BOOL *stop) {
-         NSDictionary * headerDictionary = @{@"name":name,@"value":value,@"comment":@""};
-         [headerFieldsArray addObject:headerDictionary];
-     }];
-    [requestDictionary setValue:[NSArray arrayWithArray:headerFieldsArray] forKey:@"headers"];
-    
-    //queryString [array] - List of query parameter objects.
-    NSString * fullQueryString = operation.request.URL.query;
-    NSArray * splitQueryString = [fullQueryString componentsSeparatedByString:@"&"];
-    NSMutableArray * queryArray = [NSMutableArray array];
-    if(splitQueryString){
-        [splitQueryString enumerateObjectsUsingBlock:
-         ^(NSString * singleQueryString, NSUInteger idx, BOOL *stop) {
-             NSArray * queryComponents = [singleQueryString componentsSeparatedByString:@"="];
-             if([queryComponents count]==2){
-                 NSString * name = [queryComponents objectAtIndex:0];
-                 NSString * value = [queryComponents objectAtIndex:1];
-                 NSDictionary * query = @{@"name":name,@"value":value,@"comment":@""};
-                 [queryArray addObject:query];
-             }
-         }];
-    }
-    [requestDictionary setValue:[NSArray arrayWithArray:queryArray] forKey:@"queryString"];
-    
-    //postData [object, optional] - Posted data info.
-    if(operation.request.HTTPBody!=nil){
-        NSString * contentType = [operation.request.allHTTPHeaderFields valueForKey:@"Content-Type"];
-        NSMutableDictionary * postDataDictionary = [NSMutableDictionary dictionary];
-        [postDataDictionary setValue:contentType forKey:@"mimeType"];
-        //@TODO: Determine how to use params array
-        [postDataDictionary setValue:[NSArray array] forKey:@"params"];
-        NSString * postString = [[NSString alloc] initWithData:operation.request.HTTPBody encoding:NSUTF8StringEncoding];
-        [postDataDictionary setValue:postString forKey:@"text"];
-        [requestDictionary setValue:[NSDictionary dictionaryWithDictionary:postDataDictionary] forKey:@"postData"];
-    }
-    
-    //headersSize [number] - Total number of bytes from the start of the HTTP request message until (and including) the double CRLF before the body. Set to -1 if the info is not available.
-    //@TODO: Determine how to calculate headersSize
-    [requestDictionary setValue:@-1 forKey:@"headersSize"];
-    
-    //bodySize [number] - Size of the request body (POST data payload) in bytes. Set to -1 if the info is not available.
-    [requestDictionary setValue:[NSNumber numberWithUnsignedInteger:[operation.request.HTTPBody length]] forKey:@"bodySize"];
-    
-    return [NSDictionary dictionaryWithDictionary:requestDictionary];
-}
-
-+(NSDictionary*)HTTPArchiveResponseDictionaryForOperation:(AFHTTPRequestOperation*)operation{
-    NSMutableDictionary * responseDictionary = [NSMutableDictionary dictionary];
-    
-    //status [number] - Response status.
-    [responseDictionary setValue:[NSNumber numberWithInteger:operation.response.statusCode] forKey:@"status"];
-    
-    //statusText [string] - Response status description.
-    [responseDictionary setValue:[NSHTTPURLResponse localizedStringForStatusCode:operation.response.statusCode] forKey:@"statusText"];
-    
-    //httpVersion [string] - Request HTTP Version.
-    [responseDictionary setValue:@"HTTP/1.1" forKey:@"httpVersion"];
-    
-    //cookies [array] - List of cookie objects.
-    //@TODO: Determine how to use response cookies
-    [responseDictionary setValue:[NSArray array] forKey:@"cookies"];
-    
-    //headers [array] - List of header objects.
-    NSMutableArray * headerFieldsArray = [NSMutableArray array];
-    [operation.response.allHeaderFields
-     enumerateKeysAndObjectsUsingBlock:^(NSString * name, NSString * value, BOOL *stop) {
-         NSDictionary * headerDictionary = @{@"name":name,@"value":value,@"comment":@""};
-         [headerFieldsArray addObject:headerDictionary];
-     }];
-    [responseDictionary setValue:[NSArray arrayWithArray:headerFieldsArray] forKey:@"headers"];
-    
-    //content [object] - Details about the response body.
-    NSMutableDictionary * contentDictionary = [NSMutableDictionary dictionary];
-    [contentDictionary setValue:[NSNumber numberWithUnsignedInteger:[operation.responseData length]] forKey:@"size"];
-    NSString * contentType = [operation.response.allHeaderFields valueForKey:@"Content-Type"];
-    if(contentType==nil)
-        contentType = @"";
-    [contentDictionary setValue:contentType forKey:@"mimeType"];
-    if(operation.responseString){
-        [contentDictionary setValue:operation.responseString forKey:@"text"];
-    }
-    else if(operation.responseData){
-        //@TODO How should better handle not text data?
-        NSString * string = [[NSString alloc] initWithData:operation.responseData encoding:NSUTF8StringEncoding];
-        [contentDictionary setValue:string forKey:@"text"];
-    }
-    else {
-        [contentDictionary setValue:@"" forKey:@"text"];
-    }
-    [responseDictionary setValue:[NSDictionary dictionaryWithDictionary:contentDictionary] forKey:@"content"];
-    
-    //redirectURL [string] - Redirection target URL from the Location response header.
-    //@TODO: Determine if we should be using redirectURL?
-    [responseDictionary setValue:@"" forKey:@"redirectURL"];
-    
-    //headersSize [number]* - Total number of bytes from the start of the HTTP response message until (and including) the double CRLF before the body. Set to -1 if the info is not available.
-    //@TODO: Determine how to calculate headersSize
-    [responseDictionary setValue:@-1 forKey:@"headersSize"];
-    
-    //bodySize [number] - Size of the received response body in bytes. Set to zero in case of responses coming from the cache (304). Set to -1 if the info is not available.
-    [responseDictionary setValue:[NSNumber numberWithUnsignedInteger:[operation.responseData length]] forKey:@"bodySize"];
-    
-    return [NSDictionary dictionaryWithDictionary:responseDictionary];
-}
-
--(BOOL)shouldArchiveOperation:(AFHTTPRequestOperation*)operation{
-    if(self.shouldArchiveOperationHandlerBlock)
-        return self.shouldArchiveOperationHandlerBlock(operation);
-    else
-        return YES;
-}
-
--(void)archiveOperation:(AFHTTPRequestOperation *)operation{
+-(void)archiveHTTPArchiveDictionary:(NSDictionary*)HTTPArchiveDictionary{
     dispatch_async(http_request_operation_archiving_queue(), ^{
-        NSDictionary * dictonary = [AFHARchiver HTTPArchiveEntryDictionaryForOperation:operation];
-        NSData * JSONData = [NSJSONSerialization dataWithJSONObject:dictonary options:0 error:nil];
-                
+        NSData * JSONData = [NSJSONSerialization dataWithJSONObject:HTTPArchiveDictionary options:0 error:nil];
+        
         NSMutableData * mutableData = [NSMutableData data];
         
         //We need to append a comma if we have already logged one item.
@@ -383,6 +374,27 @@ static void *AFHTTPRequestOperationArchivingEndDate = &AFHTTPRequestOperationArc
         [writeHandle closeFile];
         
     });
+}
+
+#pragma mark - Private Operation Conversion Methods
++(NSDictionary*)HTTPArchiveRequestDictionaryForOperation:(AFHTTPRequestOperation*)operation{
+    return AFHTTPArchiveRequestDictionaryForRequest(operation.request);
+}
+
++(NSDictionary*)HTTPArchiveResponseDictionaryForOperation:(AFHTTPRequestOperation*)operation{
+    return AFHTTPArchiveResponseDictionaryForResponse(operation.response, operation.responseData);
+}
+
+-(BOOL)shouldArchiveOperation:(AFHTTPRequestOperation*)operation{
+    if(self.shouldArchiveOperationHandlerBlock)
+        return self.shouldArchiveOperationHandlerBlock(operation);
+    else
+        return YES;
+}
+
+-(void)archiveOperation:(AFHTTPRequestOperation *)operation{
+    NSDictionary * dictonary = AFHTTPArchiveEntryDictionaryForOperation(operation);
+    [self archiveHTTPArchiveDictionary:dictonary];
 }
 
 @end
