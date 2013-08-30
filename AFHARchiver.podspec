@@ -1,12 +1,12 @@
 Pod::Spec.new do |s|
   s.name         = 'AFHARchiver'
-  s.version      = '0.0.2'
+  s.version      = '0.1.0'
   s.summary      = 'An AFNetworking extension to automatically generate a HTTP Archive file of all of your network requests.'
   s.author       = {
     'Kevin Harwood' => 'kevin.harwood@mutualmobile.com'
   }
   s.homepage = 'https://github.com/mutualmobile/AFHARchiver/AFHARchiver.podspec'
-  s.source       = { :git => "https://github.com/mutualmobile/AFHARchiver.git", :tag => "0.0.2" }
+  s.source       = { :git => "https://github.com/mutualmobile/AFHARchiver.git", :tag => "0.1.0" }
   s.source_files = 'AFHARchiver'
   s.license		   = {
     :type => 'MIT',
