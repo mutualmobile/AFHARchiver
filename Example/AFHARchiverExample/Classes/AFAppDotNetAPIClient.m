@@ -23,8 +23,14 @@
 #import "AFAppDotNetAPIClient.h"
 
 #import "AFJSONRequestOperation.h"
+#import "AFHARchiver.h"
 
-static NSString * const kAFAppDotNetAPIBaseURLString = @"https://alpha-api.app.net/";
+@interface AFAppDotNetAPIClient ()
+@property (nonatomic,strong) AFHARchiver *afArchiver;
+
+@end
+
+static NSString * const kAFAppDotNetAPIBaseURLString = @"http://alpha-api.app.net/";
 
 @implementation AFAppDotNetAPIClient
 
@@ -56,7 +62,52 @@ static NSString * const kAFAppDotNetAPIBaseURLString = @"https://alpha-api.app.n
         self.defaultSSLPinningMode = AFSSLPinningModeNone;
     }
     
+    [self setupArchiver];
+    
     return self;
+}
+
+-(AFHTTPRequestOperation*)HTTPRequestOperationWithRequest:(NSURLRequest *)urlRequest success:(void (^)(AFHTTPRequestOperation *, id))success failure:(void (^)(AFHTTPRequestOperation *, NSError *))failure{
+    AFHTTPRequestOperation * op = [super HTTPRequestOperationWithRequest:urlRequest success:success failure:failure];
+    
+    __weak AFHTTPRequestOperation *weakOp = op;
+    [op setRedirectResponseBlock:^NSURLRequest *(NSURLConnection *connection, NSURLRequest *request, NSURLResponse *redirectResponse) {
+        if(redirectResponse){
+            NSMutableURLRequest * newRequest = [connection.currentRequest mutableCopy];
+            [newRequest setURL:request.URL];
+            
+            [self.afArchiver operationDidRedirect:weakOp
+                                   currentRequest:connection.currentRequest
+                                       newRequest:newRequest
+                                 redirectResponse:(NSHTTPURLResponse*)redirectResponse];
+
+            return newRequest;
+        }
+        else {
+            return request;
+        }
+    }];
+    
+    return op;
+}
+
+-(void)setupArchiver{
+    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+    NSString *documentsDirectory = [paths objectAtIndex:0];
+    
+    NSDateFormatter * df = [[NSDateFormatter alloc] init];
+    [df setDateFormat:@"yyyy-MM-dd_HH-mm-ss"];
+    NSString * fileName = [NSString stringWithFormat:@"%@_log.har",[df stringFromDate:[NSDate date]]];
+    
+    NSString *filePath = [documentsDirectory stringByAppendingPathComponent:fileName];
+    NSLog(@"Logging HAR file at %@",filePath);
+    
+    self.afArchiver = [[AFHARchiver alloc] initWithPath:filePath error:nil];
+    [self.afArchiver
+     setShouldArchiveOperationBlock:^BOOL(AFHTTPRequestOperation *operation) {
+         return [operation isKindOfClass:[AFJSONRequestOperation class]];
+     }];
+    [self.afArchiver startArchiving];
 }
 
 @end

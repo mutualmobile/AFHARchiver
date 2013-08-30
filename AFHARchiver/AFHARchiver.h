@@ -82,6 +82,41 @@
 ///-----------------------------------------
 /// @name Archiving Operations
 ///-----------------------------------------
+/**
+ Used to help properly archive the redirects.
+ 
+ @param operation The operation that has been redirected
+ @param currentRequest The current request that has been redirected
+ @param newRequest The proposed request to redirect to
+ @param redirectResponse The redirect response
+ 
+ @discussion In order to properly support redirects, you must call this method from within the operations redirect response block. Please note that you should only call this method if the 'redirectResponse' object of the block is not nil. For example, in the subclass of an AFHTTPClient in `HTTPOperationWithRequest:success:failure:`, you could do the following:
+ 
+ ```
+     __weak AFHTTPRequestOperation *weakOp = op;
+     [op setRedirectResponseBlock:^NSURLRequest *(NSURLConnection *connection, NSURLRequest *request, NSURLResponse *redirectResponse) {
+         if(redirectResponse){
+            NSMutableURLRequest * newRequest = [connection.currentRequest mutableCopy];
+            [newRequest setURL:request.URL];
+         
+            [self.afArchiver operationDidRedirect:weakOp
+                                   currentRequest:connection.currentRequest
+                                       newRequest:newRequest
+                                 redirectResponse:(NSHTTPURLResponse*)redirectResponse];
+         
+            return newRequest;
+         }
+         else {
+            return request;
+         }
+     }];
+ ```
+ */
+-(void)operationDidRedirect:(AFHTTPRequestOperation *)operation currentRequest:(NSURLRequest*)currentRequest newRequest:(NSURLRequest *)newRequest redirectResponse:(NSHTTPURLResponse *)redirectResponse;
+
+///-----------------------------------------
+/// @name Archiving Operations
+///-----------------------------------------
 
 /**
  Used to determine if the archiver should log the particular operation.

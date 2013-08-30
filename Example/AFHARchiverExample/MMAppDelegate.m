@@ -15,8 +15,6 @@
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
-    [self setupArchiver];
-    
     NSURLCache *URLCache = [[NSURLCache alloc] initWithMemoryCapacity:4 * 1024 * 1024 diskCapacity:20 * 1024 * 1024 diskPath:nil];
     [NSURLCache setSharedURLCache:URLCache];
     
@@ -32,25 +30,6 @@
     [self.window makeKeyAndVisible];
     
     return YES;
-}
-
--(void)setupArchiver{
-    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
-    NSString *documentsDirectory = [paths objectAtIndex:0];
-    
-    NSDateFormatter * df = [[NSDateFormatter alloc] init];
-    [df setDateFormat:@"yyyy-MM-dd_HH-mm-ss"];
-    NSString * fileName = [NSString stringWithFormat:@"%@_log.har",[df stringFromDate:[NSDate date]]];
-    
-    NSString *filePath = [documentsDirectory stringByAppendingPathComponent:fileName];
-    NSLog(@"Logging HAR file at %@",filePath);
-    
-    self.afArchiver = [[AFHARchiver alloc] initWithPath:filePath error:nil];
-    [self.afArchiver
-     setShouldArchiveOperationBlock:^BOOL(AFHTTPRequestOperation *operation) {
-         return [operation isKindOfClass:[AFJSONRequestOperation class]];
-     }];
-    [self.afArchiver startArchiving];
 }
 
 @end

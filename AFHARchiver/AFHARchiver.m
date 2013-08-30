@@ -26,6 +26,7 @@
 
 static void *AFHTTPRequestOperationArchivingStartDate = &AFHTTPRequestOperationArchivingStartDate;
 static void *AFHTTPRequestOperationArchivingEndDate = &AFHTTPRequestOperationArchivingEndDate;
+static void *AFHTTPRequestOperationArchivingRedirectURLRequest = &AFHTTPRequestOperationArchivingRedirectURLRequest;
 
 static NSDictionary * AFHTTPArchiveRequestDictionaryForRequest(NSURLRequest *request){
     NSMutableDictionary * requestDictionary = [NSMutableDictionary dictionary];
@@ -133,8 +134,11 @@ static NSDictionary * AFHTTPArchiveResponseDictionaryForResponse(NSHTTPURLRespon
     [responseDictionary setValue:[NSDictionary dictionaryWithDictionary:contentDictionary] forKey:@"content"];
     
     //redirectURL [string] - Redirection target URL from the Location response header.
-    //@TODO: Determine if we should be using redirectURL?
-    [responseDictionary setValue:@"" forKey:@"redirectURL"];
+    NSString *redirectURL = @"";
+    if([[response allHeaderFields] valueForKey:@"Location"]){
+        redirectURL = [[response allHeaderFields] valueForKey:@"Location"];
+    }
+    [responseDictionary setValue:redirectURL forKey:@"redirectURL"];
     
     //headersSize [number]* - Total number of bytes from the start of the HTTP response message until (and including) the double CRLF before the body. Set to -1 if the info is not available.
     //@TODO: Determine how to calculate headersSize
@@ -194,12 +198,17 @@ static NSDictionary * AFHTTPArchiveEntryDictionaryForOperation(AFHTTPRequestOper
     NSDate * startTime = objc_getAssociatedObject(operation, AFHTTPRequestOperationArchivingStartDate);
     NSDate * endTime = objc_getAssociatedObject(operation, AFHTTPRequestOperationArchivingEndDate);
     
-    NSDictionary *requestDictionary = AFHTTPArchiveRequestDictionaryForRequest(operation.request);
+    NSURLRequest * redirectRequest = objc_getAssociatedObject(operation, AFHTTPRequestOperationArchivingRedirectURLRequest);
+    NSURLRequest * request = operation.request;
+    if(redirectRequest){
+        request = redirectRequest;
+    }
+    
+    NSDictionary *requestDictionary = AFHTTPArchiveRequestDictionaryForRequest(request);
     NSDictionary *responseDictionary = AFHTTPArchiveResponseDictionaryForResponse(operation.response, operation.responseData);
     
     return AFHTTPArchiveEntryDictionary(startTime,endTime,requestDictionary,responseDictionary);
 }
-
 static dispatch_queue_t af_http_request_operation_archiving_queue;
 static dispatch_queue_t http_request_operation_archiving_queue() {
     if (af_http_request_operation_archiving_queue == NULL) {
@@ -308,6 +317,21 @@ typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * 
 
 -(void)setShouldArchiveOperationBlock:(BOOL (^)(AFHTTPRequestOperation *))block{
     self.shouldArchiveOperationHandlerBlock = block;
+}
+
+-(void)operationDidRedirect:(AFHTTPRequestOperation *)operation currentRequest:(NSURLRequest*)currentRequest newRequest:(NSURLRequest *)newRequest redirectResponse:(NSHTTPURLResponse *)redirectResponse{
+    NSDate * endTime = [NSDate date];
+    objc_setAssociatedObject(operation, AFHTTPRequestOperationArchivingRedirectURLRequest, newRequest, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    NSDate * startTime = objc_getAssociatedObject(operation, AFHTTPRequestOperationArchivingStartDate);
+    //May not have a start time, if the 301 has been cached.
+    if(!startTime){
+        startTime = endTime;
+    }
+    NSDictionary * requestDictionary = AFHTTPArchiveRequestDictionaryForRequest(currentRequest);
+    NSDictionary * responseDictionary = AFHTTPArchiveResponseDictionaryForResponse(redirectResponse, nil);
+    [self archiveHTTPArchiveDictionary:AFHTTPArchiveEntryDictionary(startTime, endTime, requestDictionary, responseDictionary)];
+    //Reset the start time
+    objc_setAssociatedObject(operation, AFHTTPRequestOperationArchivingStartDate, endTime, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 -(void)dealloc{
