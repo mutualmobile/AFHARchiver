@@ -211,7 +211,7 @@ static NSDictionary * AFHTTPArchiveEntryDictionaryForOperation(AFHTTPRequestOper
 }
 
 static NSDictionary * AFHTTPArchiveEntryDictionaryForTask(NSURLSessionTask *task, NSDate *startTime, NSDate *endTime){
-    NSDictionary *requestDictionary = AFHTTPArchiveRequestDictionaryForRequest(task.originalRequest);
+    NSDictionary *requestDictionary = AFHTTPArchiveRequestDictionaryForRequest(task.currentRequest);
     NSDictionary *responseDictionary = AFHTTPArchiveResponseDictionaryForResponse((NSHTTPURLResponse*)task.response, nil);
     
     return AFHTTPArchiveEntryDictionary(startTime,endTime,requestDictionary,responseDictionary);
@@ -231,6 +231,14 @@ static dispatch_queue_t http_request_operation_archiving_queue() {
 - (NSURLRequest *)afharchiverswizzled_connection:(NSURLConnection *)connection
                                  willSendRequest:(NSURLRequest *)request
                                 redirectResponse:(NSURLResponse *)redirectResponse;
+@end
+
+@interface AFURLSessionManager(ArchiveRedirect)
+- (void)afharchiverswizzled_URLSession:(NSURLSession *)session
+                                  task:(NSURLSessionTask *)task
+            willPerformHTTPRedirection:(NSHTTPURLResponse *)response
+                            newRequest:(NSURLRequest *)request
+                     completionHandler:(void (^)(NSURLRequest *))completionHandler;
 @end
 
 @interface AFHARchiverManager : NSObject
@@ -286,6 +294,10 @@ typedef BOOL (^AFHARchiverShouldARchiveTaskBlock)(NSURLSessionTask * task);
     
     original = class_getInstanceMethod([AFURLConnectionOperation class], @selector(connection:willSendRequest:redirectResponse:));
     swizzled = class_getInstanceMethod([AFURLConnectionOperation class], @selector(afharchiverswizzled_connection:willSendRequest:redirectResponse:));
+    method_exchangeImplementations(original, swizzled);
+    
+    original = class_getInstanceMethod([AFURLSessionManager class], @selector(URLSession:task:willPerformHTTPRedirection:newRequest:completionHandler:));
+    swizzled = class_getInstanceMethod([AFURLSessionManager class], @selector(afharchiverswizzled_URLSession:task:willPerformHTTPRedirection:newRequest:completionHandler:));
     method_exchangeImplementations(original, swizzled);
 }
 
@@ -408,9 +420,27 @@ typedef BOOL (^AFHARchiverShouldARchiveTaskBlock)(NSURLSessionTask * task);
     }
     NSDictionary * requestDictionary = AFHTTPArchiveRequestDictionaryForRequest(currentRequest);
     NSDictionary * responseDictionary = AFHTTPArchiveResponseDictionaryForResponse(redirectResponse, nil);
-    [self archiveHTTPArchiveDictionary:AFHTTPArchiveEntryDictionary(startTime, endTime, requestDictionary, responseDictionary)];
+    if([self shouldArchiveOperation:operation]){
+        [self archiveHTTPArchiveDictionary:AFHTTPArchiveEntryDictionary(startTime, endTime, requestDictionary, responseDictionary)];
+    }
     //Reset the start time
     objc_setAssociatedObject(operation, AFHTTPRequestOperationArchivingStartDate, endTime, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+-(void)taskDidRedirect:(NSURLSessionTask *)task currentRequest:(NSURLRequest*)currentRequest newRequest:(NSURLRequest *)newRequest redirectResponse:(NSHTTPURLResponse *)redirectResponse{
+    NSDate * endTime = [NSDate date];
+    NSDictionary * requestDictionary = AFHTTPArchiveRequestDictionaryForRequest(currentRequest);
+    NSDictionary * responseDictionary = AFHTTPArchiveResponseDictionaryForResponse(redirectResponse, nil);
+    
+    NSString * taskID = [NSString stringWithFormat:@"%d",[task taskIdentifier]];
+    NSDate * startTime = [self.taskStartTimeTrackingTable valueForKey:taskID];
+    if(!startTime){
+        startTime = endTime;
+    }
+    if([self shouldArchiveTask:task]){
+        [self archiveHTTPArchiveDictionary:AFHTTPArchiveEntryDictionary(startTime, endTime, requestDictionary, responseDictionary)];
+    }
+    [self.taskStartTimeTrackingTable setValue:[NSDate date] forKey:taskID];
 }
 
 -(void)dealloc{
@@ -600,6 +630,35 @@ typedef BOOL (^AFHARchiverShouldARchiveTaskBlock)(NSURLSessionTask * task);
          }];
     }
     return returnedRequest;
+}
+@end
+
+@implementation AFURLSessionManager(ArchiveRedirect)
+
+- (void)afharchiverswizzled_URLSession:(NSURLSession *)session
+                                  task:(NSURLSessionTask *)task
+            willPerformHTTPRedirection:(NSHTTPURLResponse *)response
+                            newRequest:(NSURLRequest *)request
+                     completionHandler:(void (^)(NSURLRequest *))completionHandler{
+    [self
+     afharchiverswizzled_URLSession:session
+     task:task
+     willPerformHTTPRedirection:response
+     newRequest:request
+     completionHandler:^(NSURLRequest *redirectedRequest) {
+         if(response){
+             [[[AFHARchiverManager sharedInstance] archivers]
+              enumerateObjectsUsingBlock:^(AFHARchiver *archiver, NSUInteger idx, BOOL *stop) {
+                  [archiver taskDidRedirect:task
+                             currentRequest:task.currentRequest
+                                 newRequest:redirectedRequest
+                           redirectResponse:response];
+              }];
+         }
+         if(completionHandler){
+             completionHandler(redirectedRequest);
+         }
+     }];
 }
 
 @end
