@@ -410,39 +410,6 @@ typedef BOOL (^AFHARchiverShouldARchiveTaskBlock)(NSURLSessionTask * task);
     self.shouldArchiveTaskHandlerBlock = block;
 }
 
--(void)operationDidRedirect:(AFHTTPRequestOperation *)operation currentRequest:(NSURLRequest*)currentRequest newRequest:(NSURLRequest *)newRequest redirectResponse:(NSHTTPURLResponse *)redirectResponse{
-    NSDate * endTime = [NSDate date];
-    objc_setAssociatedObject(operation, AFHTTPRequestOperationArchivingRedirectURLRequest, newRequest, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    NSDate * startTime = objc_getAssociatedObject(operation, AFHTTPRequestOperationArchivingStartDate);
-    //May not have a start time, if the 301 has been cached.
-    if(!startTime){
-        startTime = endTime;
-    }
-    NSDictionary * requestDictionary = AFHTTPArchiveRequestDictionaryForRequest(currentRequest);
-    NSDictionary * responseDictionary = AFHTTPArchiveResponseDictionaryForResponse(redirectResponse, nil);
-    if([self shouldArchiveOperation:operation]){
-        [self archiveHTTPArchiveDictionary:AFHTTPArchiveEntryDictionary(startTime, endTime, requestDictionary, responseDictionary)];
-    }
-    //Reset the start time
-    objc_setAssociatedObject(operation, AFHTTPRequestOperationArchivingStartDate, endTime, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-}
-
--(void)taskDidRedirect:(NSURLSessionTask *)task currentRequest:(NSURLRequest*)currentRequest newRequest:(NSURLRequest *)newRequest redirectResponse:(NSHTTPURLResponse *)redirectResponse{
-    NSDate * endTime = [NSDate date];
-    NSDictionary * requestDictionary = AFHTTPArchiveRequestDictionaryForRequest(currentRequest);
-    NSDictionary * responseDictionary = AFHTTPArchiveResponseDictionaryForResponse(redirectResponse, nil);
-    
-    NSString * taskID = [NSString stringWithFormat:@"%d",[task taskIdentifier]];
-    NSDate * startTime = [self.taskStartTimeTrackingTable valueForKey:taskID];
-    if(!startTime){
-        startTime = endTime;
-    }
-    if([self shouldArchiveTask:task]){
-        [self archiveHTTPArchiveDictionary:AFHTTPArchiveEntryDictionary(startTime, endTime, requestDictionary, responseDictionary)];
-    }
-    [self.taskStartTimeTrackingTable setValue:[NSDate date] forKey:taskID];
-}
-
 -(void)dealloc{
     if(self.isArchiving == YES){
         [self stopArchiving];
@@ -528,6 +495,22 @@ typedef BOOL (^AFHARchiverShouldARchiveTaskBlock)(NSURLSessionTask * task);
     [self.taskStartTimeTrackingTable removeObjectForKey:taskID];
 }
 
+-(void)taskDidRedirect:(NSURLSessionTask *)task currentRequest:(NSURLRequest*)currentRequest newRequest:(NSURLRequest *)newRequest redirectResponse:(NSHTTPURLResponse *)redirectResponse{
+    NSDate * endTime = [NSDate date];
+    NSDictionary * requestDictionary = AFHTTPArchiveRequestDictionaryForRequest(currentRequest);
+    NSDictionary * responseDictionary = AFHTTPArchiveResponseDictionaryForResponse(redirectResponse, nil);
+    
+    NSString * taskID = [NSString stringWithFormat:@"%d",[task taskIdentifier]];
+    NSDate * startTime = [self.taskStartTimeTrackingTable valueForKey:taskID];
+    if(!startTime){
+        startTime = endTime;
+    }
+    if([self shouldArchiveTask:task]){
+        [self archiveHTTPArchiveDictionary:AFHTTPArchiveEntryDictionary(startTime, endTime, requestDictionary, responseDictionary)];
+    }
+    [self.taskStartTimeTrackingTable setValue:[NSDate date] forKey:taskID];
+}
+
 -(BOOL)shouldArchiveTask:(NSURLSessionTask*)task{
     if(self.shouldArchiveTaskHandlerBlock){
         return self.shouldArchiveTaskHandlerBlock(task);
@@ -557,6 +540,23 @@ typedef BOOL (^AFHARchiverShouldARchiveTaskBlock)(NSURLSessionTask * task);
     if([self shouldArchiveOperation:operation]){
         [self archiveOperation:operation];
     }
+}
+
+-(void)operationDidRedirect:(AFHTTPRequestOperation *)operation currentRequest:(NSURLRequest*)currentRequest newRequest:(NSURLRequest *)newRequest redirectResponse:(NSHTTPURLResponse *)redirectResponse{
+    NSDate * endTime = [NSDate date];
+    objc_setAssociatedObject(operation, AFHTTPRequestOperationArchivingRedirectURLRequest, newRequest, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    NSDate * startTime = objc_getAssociatedObject(operation, AFHTTPRequestOperationArchivingStartDate);
+    //May not have a start time, if the 301 has been cached.
+    if(!startTime){
+        startTime = endTime;
+    }
+    NSDictionary * requestDictionary = AFHTTPArchiveRequestDictionaryForRequest(currentRequest);
+    NSDictionary * responseDictionary = AFHTTPArchiveResponseDictionaryForResponse(redirectResponse, nil);
+    if([self shouldArchiveOperation:operation]){
+        [self archiveHTTPArchiveDictionary:AFHTTPArchiveEntryDictionary(startTime, endTime, requestDictionary, responseDictionary)];
+    }
+    //Reset the start time
+    objc_setAssociatedObject(operation, AFHTTPRequestOperationArchivingStartDate, endTime, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 +(NSDictionary*)HTTPArchiveRequestDictionaryForOperation:(AFHTTPRequestOperation*)operation{

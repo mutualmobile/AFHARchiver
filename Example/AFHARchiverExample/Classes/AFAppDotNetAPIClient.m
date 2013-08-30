@@ -22,7 +22,7 @@
 
 #import "AFAppDotNetAPIClient.h"
 
-static NSString * const AFAppDotNetAPIBaseURLString = @"https://alpha-api.app.net/";
+static NSString * const AFAppDotNetAPIBaseURLString = @"http://alpha-api.app.net/";
 
 @implementation AFAppDotNetAPIClient
 
