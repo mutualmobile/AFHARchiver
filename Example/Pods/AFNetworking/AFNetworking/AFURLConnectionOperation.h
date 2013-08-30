@@ -1,6 +1,6 @@
 // AFURLConnectionOperation.h
 //
-// Copyright (c) 2011 Gowalla (http://gowalla.com/)
+// Copyright (c) 2013 AFNetworking (http://afnetworking.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -44,14 +44,10 @@
  - `connection:didSendBodyData:totalBytesWritten:totalBytesExpectedToWrite:`
  - `connection:willCacheResponse:`
  - `connectionShouldUseCredentialStorage:`
- - `connection:needNewBodyStream:`
+ - `connection:needNewBodyStream:` 
  - `connection:willSendRequestForAuthenticationChallenge:`
 
  If any of these methods are overridden in a subclass, they _must_ call the `super` implementation first.
-
- ## Class Constructors
-
- Class constructors, or methods that return an unowned instance, are the preferred way for subclasses to encapsulate any particular logic for handling the setup or parsing of response data. For instance, `AFJSONRequestOperation` provides `JSONRequestOperationWithRequest:success:failure:`, which takes block arguments, whose parameter on for a successful request is the JSON object initialized from the `response data`.
 
  ## Callbacks and Completion Blocks
 
@@ -65,7 +61,7 @@
  
  SSL with certificate pinning is strongly recommended for any application that transmits sensitive information to an external webservice.
 
- When `defaultSSLPinningMode` is defined on `AFHTTPClient` and the Security framework is linked, connections will be validated on all matching certificates with a `.cer` extension in the bundle root.
+ Connections will be validated on all matching certificates with a `.cer` extension in the bundle root.
 
  ## NSCoding & NSCopying Conformance
 
@@ -80,21 +76,16 @@
 
  - `-copy` and `-copyWithZone:` return a new operation with the `NSURLRequest` of the original. So rather than an exact copy of the operation at that particular instant, the copying mechanism returns a completely new instance, which can be useful for retrying operations.
  - A copy of an operation will not include the `outputStream` of the original.
- - Operation copies do not include `completionBlock`. `completionBlock` often strongly captures a reference to `self`, which would otherwise have the unintuitive side-effect of pointing to the _original_ operation when copied.
+ - Operation copies do not include `completionBlock`, as it often strongly captures a reference to `self`, which would otherwise have the unintuitive side-effect of pointing to the _original_ operation when copied.
  */
 
-typedef enum {
+typedef NS_ENUM(NSUInteger, AFURLConnectionOperationSSLPinningMode) {
     AFSSLPinningModeNone,
     AFSSLPinningModePublicKey,
     AFSSLPinningModeCertificate,
-} AFURLConnectionOperationSSLPinningMode;
+};
 
-@interface AFURLConnectionOperation : NSOperation <NSURLConnectionDelegate,
-#if (defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 50000) || \
-    (defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080)
-NSURLConnectionDataDelegate, 
-#endif
-NSCoding, NSCopying>
+@interface AFURLConnectionOperation : NSOperation <NSURLConnectionDelegate, NSURLConnectionDataDelegate, NSCoding, NSCopying>
 
 ///-------------------------------
 /// @name Accessing Run Loop Modes
@@ -125,9 +116,7 @@ NSCoding, NSCopying>
 @property (readonly, nonatomic, strong) NSError *error;
 
 /**
- Whether the connection should accept an invalid SSL certificate.
- 
- If `_AFNETWORKING_ALLOW_INVALID_SSL_CERTIFICATES_` is set, this property defaults to `YES` for backwards compatibility. Otherwise, this property defaults to `NO`.
+ Whether the connection should accept an invalid SSL certificate. `NO` by default.
  */
 @property (nonatomic, assign) BOOL allowsInvalidSSLCertificate;
 
@@ -172,8 +161,6 @@ NSCoding, NSCopying>
 
 /**
  The pinning mode which will be used for SSL connections. `AFSSLPinningModePublicKey` by default.
- 
- SSL Pinning requires that the Security framework is linked with the binary. See the "SSL Pinning" section in the `AFURLConnectionOperation`" header for more information.
  */
 @property (nonatomic, assign) AFURLConnectionOperationSSLPinningMode SSLPinningMode;
 
@@ -215,7 +202,7 @@ NSCoding, NSCopying>
  
  @param urlRequest The request object to be used by the operation connection.
  */
-- (id)initWithRequest:(NSURLRequest *)urlRequest;
+- (instancetype)initWithRequest:(NSURLRequest *)urlRequest;
 
 ///----------------------------------
 /// @name Pausing / Resuming Requests

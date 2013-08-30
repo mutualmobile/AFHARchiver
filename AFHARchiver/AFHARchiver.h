@@ -92,4 +92,17 @@
  */
 -(void)setShouldArchiveOperationBlock:(BOOL (^)(AFHTTPRequestOperation * operation))block;
 
+///-----------------------------------------
+/// @name Archiving Tasks
+///-----------------------------------------
+
+/**
+ Used to determine if the archiver should log the particular `NSURLSessionTask`.
+ 
+ @param block A block to be called to determine if an `NSURLSessionTask` should be archived.
+ 
+ @discussion This method can be used to prevent certain tasks from being logged. For example, you may only want to log specific API requests, so this block can be used to inspect the task, and determine if it should be logged. A more common use would be to inspect and see if the task is contains image data, and choose not to log it. This can save a significant amount of disk space.
+ */
+-(void)setShouldArchiveTaskBlock:(BOOL (^)(NSURLSessionTask * task))block;
+
 @end

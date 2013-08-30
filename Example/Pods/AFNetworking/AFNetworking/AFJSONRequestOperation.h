@@ -1,7 +1,7 @@
 // AFJSONRequestOperation.h
 //
-// Copyright (c) 2011 Gowalla (http://gowalla.com/)
-// 
+// Copyright (c) 2013 AFNetworking (http://afnetworking.com)
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
@@ -24,32 +24,23 @@
 #import "AFHTTPRequestOperation.h"
 
 /**
- `AFJSONRequestOperation` is a subclass of `AFHTTPRequestOperation` for downloading and working with JSON response data.
- 
- ## Acceptable Content Types
- 
- By default, `AFJSONRequestOperation` accepts the following MIME types, which includes the official standard, `application/json`, as well as other commonly-used types:
- 
- - `application/json`
- - `text/json`
-
- @warning JSON parsing will use the built-in `NSJSONSerialization` class.
+ `AFJSONRequestOperation` is a subclass of `AFHTTPRequestOperation` for downloading and working with JSON response data. It uses an instance of `AFJSONSerialization` to handle response validation and serialization.
  */
 @interface AFJSONRequestOperation : AFHTTPRequestOperation
 
-///----------------------------
+///------------------------------
 /// @name Getting Response Data
-///----------------------------
+///------------------------------
+
+/**
+Options for reading the response JSON data and creating the Foundation objects. For possible values, see the `NSJSONSerialization` documentation section "NSJSONReadingOptions".
+*/
+@property (nonatomic, assign) NSJSONReadingOptions JSONReadingOptions;
 
 /**
  A JSON object constructed from the response data. If an error occurs while parsing, `nil` will be returned, and the `error` property will be set to the error.
  */
 @property (readonly, nonatomic, strong) id responseJSON;
-
-/**
- Options for reading the response JSON data and creating the Foundation objects. For possible values, see the `NSJSONSerialization` documentation section "NSJSONReadingOptions".
- */
-@property (nonatomic, assign) NSJSONReadingOptions JSONReadingOptions;
  
 ///----------------------------------
 /// @name Creating Request Operations

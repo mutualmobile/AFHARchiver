@@ -21,27 +21,16 @@
 // THE SOFTWARE.
 
 #import "AFJSONRequestOperation.h"
-
-static dispatch_queue_t json_request_operation_processing_queue() {
-    static dispatch_queue_t af_json_request_operation_processing_queue;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        af_json_request_operation_processing_queue = dispatch_queue_create("com.alamofire.networking.json-request.processing", DISPATCH_QUEUE_CONCURRENT);
-    });
-
-    return af_json_request_operation_processing_queue;
-}
+#import "AFSerialization.h"
 
 @interface AFJSONRequestOperation ()
 @property (readwrite, nonatomic, strong) id responseJSON;
-@property (readwrite, nonatomic, strong) NSError *JSONError;
+@property (readwrite, nonatomic, strong) NSError *error;
 @property (readwrite, nonatomic, strong) NSRecursiveLock *lock;
 @end
 
 @implementation AFJSONRequestOperation
-@synthesize responseJSON = _responseJSON;
-@synthesize JSONReadingOptions = _JSONReadingOptions;
-@synthesize JSONError = _JSONError;
+@dynamic error;
 @dynamic lock;
 
 + (instancetype)JSONRequestOperationWithRequest:(NSURLRequest *)urlRequest
@@ -62,89 +51,68 @@ static dispatch_queue_t json_request_operation_processing_queue() {
     return requestOperation;
 }
 
+- (instancetype)initWithRequest:(NSURLRequest *)urlRequest {
+    self = [super initWithRequest:urlRequest];
+    if (!self) {
+        return nil;
+    }
+
+    self.responseSerializer = [AFJSONSerializer serializer];
+
+    return self;
+}
+
+#pragma mark AFJSONRequestOperation
 
 - (id)responseJSON {
     [self.lock lock];
-    if (!_responseJSON && [self.responseData length] > 0 && [self isFinished] && !self.JSONError) {
+    if (!_responseJSON && [self.responseData length] > 0 && [self isFinished] && !self.error) {
         NSError *error = nil;
-
-        // Workaround for behavior of Rails to return a single space for `head :ok` (a workaround for a bug in Safari), which is not interpreted as valid input by NSJSONSerialization.
-        // See https://github.com/rails/rails/issues/1742
-        if (self.responseString && ![self.responseString isEqualToString:@" "]) {
-            // Workaround for a bug in NSJSONSerialization when Unicode character escape codes are used instead of the actual character
-            // See http://stackoverflow.com/a/12843465/157142
-            NSData *data = [self.responseString dataUsingEncoding:NSUTF8StringEncoding];
-
-            if (data) {
-                self.responseJSON = [NSJSONSerialization JSONObjectWithData:data options:self.JSONReadingOptions error:&error];
-            } else {
-                NSMutableDictionary *userInfo = [NSMutableDictionary dictionary];
-                [userInfo setValue:@"Operation responseData failed decoding as a UTF-8 string" forKey:NSLocalizedDescriptionKey];
-                [userInfo setValue:[NSString stringWithFormat:@"Could not decode string: %@", self.responseString] forKey:NSLocalizedFailureReasonErrorKey];
-                error = [[NSError alloc] initWithDomain:AFNetworkingErrorDomain code:NSURLErrorCannotDecodeContentData userInfo:userInfo];
-            }
-        }
-
-        self.JSONError = error;
+        self.responseJSON = [self.responseSerializer responseObjectForResponse:self.response data:self.responseData error:&error];
+        self.error = error;
     }
     [self.lock unlock];
 
     return _responseJSON;
 }
 
-- (NSError *)error {
-    if (_JSONError) {
-        return _JSONError;
-    } else {
-        return [super error];
+- (NSJSONReadingOptions)JSONReadingOptions {
+    return [(AFJSONSerializer *)self.responseSerializer readingOptions];
+}
+
+- (void)setJSONReadingOptions:(NSJSONReadingOptions)JSONReadingOptions {
+    [self.lock lock];
+    if (self.JSONReadingOptions != JSONReadingOptions) {
+        [(AFJSONSerializer *)self.responseSerializer setReadingOptions:JSONReadingOptions];
+
+        self.responseJSON = nil;
     }
+    [self.lock unlock];
 }
 
 #pragma mark - AFHTTPRequestOperation
 
-+ (NSSet *)acceptableContentTypes {
-    return [NSSet setWithObjects:@"application/json", @"text/json", @"text/javascript", nil];
-}
-
-+ (BOOL)canProcessRequest:(NSURLRequest *)request {
-    return [[[request URL] pathExtension] isEqualToString:@"json"] || [super canProcessRequest:request];
-}
-
 - (void)setCompletionBlockWithSuccess:(void (^)(AFHTTPRequestOperation *operation, id responseObject))success
                               failure:(void (^)(AFHTTPRequestOperation *operation, NSError *error))failure
 {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-retain-cycles"
-#pragma clang diagnostic ignored "-Wgnu"
-
-    self.completionBlock = ^ {
-        if (self.error) {
-            if (failure) {
-                dispatch_async(self.failureCallbackQueue ?: dispatch_get_main_queue(), ^{
-                    failure(self, self.error);
-                });
-            }
-        } else {
-            dispatch_async(json_request_operation_processing_queue(), ^{
-                id JSON = self.responseJSON;
-
-                if (self.error) {
-                    if (failure) {
-                        dispatch_async(self.failureCallbackQueue ?: dispatch_get_main_queue(), ^{
-                            failure(self, self.error);
-                        });
-                    }
-                } else {
-                    if (success) {
-                        dispatch_async(self.successCallbackQueue ?: dispatch_get_main_queue(), ^{
-                            success(self, JSON);
-                        });
-                    }
-                }
-            });
+    __weak __typeof(self)weakSelf = self;
+    [super setCompletionBlockWithSuccess:^(AFHTTPRequestOperation *operation, id responseObject) {
+        __strong __typeof(weakSelf)strongSelf = weakSelf;
+        if (![responseObject isKindOfClass:[NSData class]]) {
+            [strongSelf setResponseJSON:responseObject];
         }
-    };
-#pragma clang diagnostic pop
+
+        if (success) {
+            success(operation, responseObject);
+        }
+    } failure:^(AFHTTPRequestOperation *operation, NSError *error) {
+        __strong __typeof(weakSelf)strongSelf = weakSelf;
+        [strongSelf setError:error];
+
+        if (failure) {
+            failure(operation, error);
+        }
+    }];
 }
 
 @end

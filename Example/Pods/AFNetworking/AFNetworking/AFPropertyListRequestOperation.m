@@ -1,6 +1,6 @@
 // AFPropertyListRequestOperation.m
 //
-// Copyright (c) 2011 Gowalla (http://gowalla.com/)
+// Copyright (c) 2013 AFNetworking (http://afnetworking.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,27 +22,18 @@
 
 #import "AFPropertyListRequestOperation.h"
 
-static dispatch_queue_t property_list_request_operation_processing_queue() {
-    static dispatch_queue_t af_property_list_request_operation_processing_queue;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        af_property_list_request_operation_processing_queue = dispatch_queue_create("com.alamofire.networking.property-list-request.processing", DISPATCH_QUEUE_CONCURRENT);
-    });
-
-    return af_property_list_request_operation_processing_queue;
-}
+#import "AFSerialization.h"
 
 @interface AFPropertyListRequestOperation ()
-@property (readwrite, nonatomic) id responsePropertyList;
-@property (readwrite, nonatomic, assign) NSPropertyListFormat propertyListFormat;
-@property (readwrite, nonatomic) NSError *propertyListError;
+@property (readwrite, nonatomic, strong) id responsePropertyList;
+@property (readwrite, nonatomic, assign) NSPropertyListFormat responsePropertyListFormat;
+@property (readwrite, nonatomic, strong) NSError *error;
+@property (readwrite, nonatomic, strong) NSRecursiveLock *lock;
 @end
 
 @implementation AFPropertyListRequestOperation
-@synthesize responsePropertyList = _responsePropertyList;
-@synthesize propertyListReadOptions = _propertyListReadOptions;
-@synthesize propertyListFormat = _propertyListFormat;
-@synthesize propertyListError = _propertyListError;
+@dynamic error;
+@dynamic lock;
 
 + (instancetype)propertyListRequestOperationWithRequest:(NSURLRequest *)request
 												success:(void (^)(NSURLRequest *request, NSHTTPURLResponse *response, id propertyList))success
@@ -62,82 +53,70 @@ static dispatch_queue_t property_list_request_operation_processing_queue() {
     return requestOperation;
 }
 
-- (id)initWithRequest:(NSURLRequest *)urlRequest {
+- (instancetype)initWithRequest:(NSURLRequest *)urlRequest {
     self = [super initWithRequest:urlRequest];
     if (!self) {
         return nil;
     }
 
-    self.propertyListReadOptions = NSPropertyListImmutable;
+    self.responseSerializer = [AFPropertyListSerializer serializerWithFormat:NSPropertyListXMLFormat_v1_0 readOptions:NSPropertyListImmutable writeOptions:0];
 
     return self;
 }
 
+#pragma mark AFPropertyListRequestOperation
+
+- (NSPropertyListReadOptions)propertyListReadOptions {
+    return [(AFPropertyListSerializer *)self.responseSerializer readOptions];
+}
+
+- (void)setPropertyListReadOptions:(NSPropertyListReadOptions)propertyListReadOptions {
+    [self.lock lock];
+    if (self.propertyListReadOptions != propertyListReadOptions) {
+        [(AFPropertyListSerializer *)self.responseSerializer setReadOptions:propertyListReadOptions];
+
+        self.responsePropertyList = nil;
+    }
+    [self.lock unlock];
+}
 
 - (id)responsePropertyList {
+    [self.lock lock];
     if (!_responsePropertyList && [self.responseData length] > 0 && [self isFinished]) {
         NSPropertyListFormat format;
         NSError *error = nil;
         self.responsePropertyList = [NSPropertyListSerialization propertyListWithData:self.responseData options:self.propertyListReadOptions format:&format error:&error];
-        self.propertyListFormat = format;
-        self.propertyListError = error;
+        self.responsePropertyListFormat = format;
+        self.error = error;
     }
+    [self.lock unlock];
 
     return _responsePropertyList;
 }
 
-- (NSError *)error {
-    if (_propertyListError) {
-        return _propertyListError;
-    } else {
-        return [super error];
-    }
-}
-
 #pragma mark - AFHTTPRequestOperation
-
-+ (NSSet *)acceptableContentTypes {
-    return [NSSet setWithObjects:@"application/x-plist", nil];
-}
-
-+ (BOOL)canProcessRequest:(NSURLRequest *)request {
-    return [[[request URL] pathExtension] isEqualToString:@"plist"] || [super canProcessRequest:request];
-}
 
 - (void)setCompletionBlockWithSuccess:(void (^)(AFHTTPRequestOperation *operation, id responseObject))success
                               failure:(void (^)(AFHTTPRequestOperation *operation, NSError *error))failure
 {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-retain-cycles"
-#pragma clang diagnostic ignored "-Wgnu"
-    self.completionBlock = ^ {
-        if (self.error) {
-            if (failure) {
-                dispatch_async(self.failureCallbackQueue ?: dispatch_get_main_queue(), ^{
-                    failure(self, self.error);
-                });
-            }
-        } else {
-            dispatch_async(property_list_request_operation_processing_queue(), ^(void) {
-                id propertyList = self.responsePropertyList;
-
-                if (self.propertyListError) {
-                    if (failure) {
-                        dispatch_async(self.failureCallbackQueue ?: dispatch_get_main_queue(), ^{
-                            failure(self, self.error);
-                        });
-                    }
-                } else {
-                    if (success) {
-                        dispatch_async(self.successCallbackQueue ?: dispatch_get_main_queue(), ^{
-                            success(self, propertyList);
-                        });
-                    }
-                }
-            });
+    __weak __typeof(self)weakSelf = self;
+    [super setCompletionBlockWithSuccess:^(AFHTTPRequestOperation *operation, id responseObject) {
+        __strong __typeof(weakSelf)strongSelf = weakSelf;
+        if (![responseObject isKindOfClass:[NSData class]]) {
+            [strongSelf setResponsePropertyList:responseObject];
         }
-    };
-#pragma clang diagnostic pop
+
+        if (success) {
+            success(operation, responseObject);
+        }
+    } failure:^(AFHTTPRequestOperation *operation, NSError *error) {
+        __strong __typeof(weakSelf)strongSelf = weakSelf;
+        [strongSelf setError:error];
+
+        if (failure) {
+            failure(operation, error);
+        }
+    }];
 }
 
 @end

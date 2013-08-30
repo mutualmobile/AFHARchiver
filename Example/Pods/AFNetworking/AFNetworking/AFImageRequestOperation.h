@@ -1,6 +1,6 @@
 // AFImageRequestOperation.h
 //
-// Copyright (c) 2011 Gowalla (http://gowalla.com/)
+// Copyright (c) 2013 AFNetworking (http://afnetworking.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -32,22 +32,7 @@
 #endif
 
 /**
- `AFImageRequestOperation` is a subclass of `AFHTTPRequestOperation` for downloading and processing images.
-
- ## Acceptable Content Types
-
- By default, `AFImageRequestOperation` accepts the following MIME types, which correspond to the image formats supported by UIImage or NSImage:
-
- - `image/tiff`
- - `image/jpeg`
- - `image/gif`
- - `image/png`
- - `image/ico`
- - `image/x-icon`
- - `image/bmp`
- - `image/x-bmp`
- - `image/x-xbitmap`
- - `image/x-win-bitmap`
+ `AFImageRequestOperation` is a subclass of `AFHTTPRequestOperation` for downloading and processing images. It uses an instance of `AFImageSerializer` to handle response validation and serialization.
  */
 @interface AFImageRequestOperation : AFHTTPRequestOperation
 

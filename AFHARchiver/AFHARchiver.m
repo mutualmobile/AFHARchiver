@@ -210,6 +210,13 @@ static NSDictionary * AFHTTPArchiveEntryDictionaryForOperation(AFHTTPRequestOper
     return AFHTTPArchiveEntryDictionary(startTime,endTime,requestDictionary,responseDictionary);
 }
 
+static NSDictionary * AFHTTPArchiveEntryDictionaryForTask(NSURLSessionTask *task, NSDate *startTime, NSDate *endTime){
+    NSDictionary *requestDictionary = AFHTTPArchiveRequestDictionaryForRequest(task.originalRequest);
+    NSDictionary *responseDictionary = AFHTTPArchiveResponseDictionaryForResponse((NSHTTPURLResponse*)task.response, nil);
+    
+    return AFHTTPArchiveEntryDictionary(startTime,endTime,requestDictionary,responseDictionary);
+}
+
 static dispatch_queue_t af_http_request_operation_archiving_queue;
 static dispatch_queue_t http_request_operation_archiving_queue() {
     if (af_http_request_operation_archiving_queue == NULL) {
@@ -237,6 +244,7 @@ static dispatch_queue_t http_request_operation_archiving_queue() {
 @end
 
 typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * operation);
+typedef BOOL (^AFHARchiverShouldARchiveTaskBlock)(NSURLSessionTask * task);
 
 @interface AFHARchiver ()
 @property (nonatomic,assign) BOOL isArchiving;
@@ -247,6 +255,7 @@ typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * 
 @property (nonatomic,strong) NSString * creatorVersion;
 
 @property (readwrite, nonatomic, copy) AFHARchiverShouldArchiveOperationBlock shouldArchiveOperationHandlerBlock;
+@property (readwrite, nonatomic, copy) AFHARchiverShouldARchiveTaskBlock shouldArchiveTaskHandlerBlock;
 
 @property (nonatomic,strong) NSMutableDictionary * taskStartTimeTrackingTable;
 @property (nonatomic,strong) NSMutableDictionary * taskEndTimeTrackingTable;
@@ -339,6 +348,18 @@ typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * 
          name:AFNetworkingOperationDidFinishNotification
          object:nil];
         
+        [[NSNotificationCenter defaultCenter]
+         addObserver:self
+         selector:@selector(taskDidStart:)
+         name:AFNetworkingTaskDidStartNotification
+         object:nil];
+        
+        [[NSNotificationCenter defaultCenter]
+         addObserver:self
+         selector:@selector(taskDidFinish:)
+         name:AFNetworkingTaskDidFinishNotification
+         object:nil];
+        
         self.isArchiving = YES;
     }
 }
@@ -355,12 +376,26 @@ typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * 
          name:AFNetworkingOperationDidFinishNotification
          object:nil];
         
+        [[NSNotificationCenter defaultCenter]
+         removeObserver:self
+         name:AFNetworkingTaskDidStartNotification
+         object:nil];
+        
+        [[NSNotificationCenter defaultCenter]
+         removeObserver:self
+         name:AFNetworkingTaskDidFinishNotification
+         object:nil];
+        
         self.isArchiving = NO;
     }
 }
 
 -(void)setShouldArchiveOperationBlock:(BOOL (^)(AFHTTPRequestOperation *))block{
     self.shouldArchiveOperationHandlerBlock = block;
+}
+
+-(void)setShouldArchiveTaskBlock:(BOOL (^)(NSURLSessionTask *))block{
+    self.shouldArchiveTaskHandlerBlock = block;
 }
 
 -(void)operationDidRedirect:(AFHTTPRequestOperation *)operation currentRequest:(NSURLRequest*)currentRequest newRequest:(NSURLRequest *)newRequest redirectResponse:(NSHTTPURLResponse *)redirectResponse{
@@ -440,6 +475,44 @@ typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * 
         [writeHandle closeFile];
         
     });
+}
+
+#pragma mark - Private NSURLSessionTask Methods
+-(void)taskDidStart:(NSNotification*)notification{
+    NSURLSessionTask * task = [notification object];
+    NSString * taskID = [NSString stringWithFormat:@"%d",[task taskIdentifier]];
+    if(![self.taskStartTimeTrackingTable valueForKey:taskID]){
+        [self.taskStartTimeTrackingTable setValue:[NSDate date] forKey:taskID];
+    }
+}
+
+-(void)taskDidFinish:(NSNotification*)notification{
+    NSURLSessionTask * task = [notification object];
+    NSString * taskID = [NSString stringWithFormat:@"%d",[task taskIdentifier]];
+    [self.taskEndTimeTrackingTable setValue:[NSDate date] forKey:taskID];
+    if([self shouldArchiveTask:task]){
+        [self archiveTask:task];
+    }
+    
+    [self.taskEndTimeTrackingTable removeObjectForKey:taskID];
+    [self.taskStartTimeTrackingTable removeObjectForKey:taskID];
+}
+
+-(BOOL)shouldArchiveTask:(NSURLSessionTask*)task{
+    if(self.shouldArchiveTaskHandlerBlock){
+        return self.shouldArchiveTaskHandlerBlock(task);
+    }
+    else {
+        return YES;
+    }
+}
+
+-(void)archiveTask:(NSURLSessionTask*)task{
+    NSString * taskID = [NSString stringWithFormat:@"%d",[task taskIdentifier]];
+    NSDate * startTime = [self.taskStartTimeTrackingTable valueForKey:taskID];
+    NSDate * endTime = [self.taskEndTimeTrackingTable valueForKey:taskID];
+    NSDictionary * dictionary = AFHTTPArchiveEntryDictionaryForTask(task, startTime, endTime);
+    [self archiveHTTPArchiveDictionary:dictionary];
 }
 
 #pragma mark - Private AFHTTPRequestOperation Methods

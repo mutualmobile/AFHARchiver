@@ -1,6 +1,6 @@
 // AFXMLRequestOperation.m
 //
-// Copyright (c) 2011 Gowalla (http://gowalla.com/)
+// Copyright (c) 2013 AFNetworking (http://afnetworking.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -21,33 +21,22 @@
 // THE SOFTWARE.
 
 #import "AFXMLRequestOperation.h"
-
+#import "AFSerialization.h"
 #include <Availability.h>
-
-static dispatch_queue_t xml_request_operation_processing_queue() {
-    static dispatch_queue_t af_xml_request_operation_processing_queue;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        af_xml_request_operation_processing_queue = dispatch_queue_create("com.alamofire.networking.xml-request.processing", DISPATCH_QUEUE_CONCURRENT);
-    });
-
-    return af_xml_request_operation_processing_queue;
-}
 
 @interface AFXMLRequestOperation ()
 @property (readwrite, nonatomic, strong) NSXMLParser *responseXMLParser;
 #ifdef __MAC_OS_X_VERSION_MIN_REQUIRED
+@property (readwrite, nonatomic, strong) AFXMLDocumentSerializer *XMLDocumentSerializer;
 @property (readwrite, nonatomic, strong) NSXMLDocument *responseXMLDocument;
 #endif
-@property (readwrite, nonatomic, strong) NSError *XMLError;
+@property (readwrite, nonatomic, strong) NSError *error;
+@property (readwrite, nonatomic, strong) NSRecursiveLock *lock;
 @end
 
 @implementation AFXMLRequestOperation
-@synthesize responseXMLParser = _responseXMLParser;
-#ifdef __MAC_OS_X_VERSION_MIN_REQUIRED
-@synthesize responseXMLDocument = _responseXMLDocument;
-#endif
-@synthesize XMLError = _XMLError;
+@dynamic error;
+@dynamic lock;
 
 + (instancetype)XMLParserRequestOperationWithRequest:(NSURLRequest *)urlRequest
 											 success:(void (^)(NSURLRequest *request, NSHTTPURLResponse *response, NSXMLParser *XMLParser))success
@@ -89,33 +78,93 @@ static dispatch_queue_t xml_request_operation_processing_queue() {
 }
 #endif
 
+- (instancetype)initWithRequest:(NSURLRequest *)urlRequest {
+    self = [super initWithRequest:urlRequest];
+    if (!self) {
+        return nil;
+    }
+
+    self.responseSerializer = [AFXMLParserSerializer serializer];
+
+#ifdef __MAC_OS_X_VERSION_MIN_REQUIRED
+    self.XMLDocumentSerializer = [AFXMLDocumentSerializer serializer];
+#endif
+
+    return self;
+}
+
+#pragma mark - AFXMLRequestOperation
 
 - (NSXMLParser *)responseXMLParser {
+    [self.lock lock];
     if (!_responseXMLParser && [self.responseData length] > 0 && [self isFinished]) {
-        self.responseXMLParser = [[NSXMLParser alloc] initWithData:self.responseData];
+        NSError *error = nil;
+        self.responseXMLParser = [self.responseSerializer responseObjectForResponse:self.response data:self.responseData error:&error];
+        self.error = error;
     }
+    [self.lock unlock];
 
     return _responseXMLParser;
 }
 
 #ifdef __MAC_OS_X_VERSION_MIN_REQUIRED
+- (NSUInteger)XMLDocumentOptions {
+    return self.XMLDocumentSerializer.options;
+}
+
+- (void)setXMLDocumentOptions:(NSUInteger)mask {
+    [self.lock lock];
+    if (self.XMLDocumentOptions != mask) {
+        self.XMLDocumentSerializer.options = mask;
+
+        self.responseXMLDocument = nil;
+    }
+
+    [self.lock unlock];
+}
+
 - (NSXMLDocument *)responseXMLDocument {
+    [self.lock lock];
     if (!_responseXMLDocument && [self.responseData length] > 0 && [self isFinished]) {
         NSError *error = nil;
-        self.responseXMLDocument = [[NSXMLDocument alloc] initWithData:self.responseData options:0 error:&error];
-        self.XMLError = error;
+        self.responseXMLDocument = [self.XMLDocumentSerializer responseObjectForResponse:self.response data:self.responseData error:&error];
+        self.error = error;
     }
+    [self.lock unlock];
 
     return _responseXMLDocument;
 }
 #endif
 
-- (NSError *)error {
-    if (_XMLError) {
-        return _XMLError;
-    } else {
-        return [super error];
-    }
+#pragma mark - AFHTTPRequestOperation
+
+- (void)setCompletionBlockWithSuccess:(void (^)(AFHTTPRequestOperation *operation, id responseObject))success
+                              failure:(void (^)(AFHTTPRequestOperation *operation, NSError *error))failure
+{
+    __weak __typeof(self)weakSelf = self;
+    [super setCompletionBlockWithSuccess:^(AFHTTPRequestOperation *operation, id responseObject) {
+        __strong __typeof(weakSelf)strongSelf = weakSelf;
+        if ([responseObject isKindOfClass:[NSXMLParser class]]) {
+            [strongSelf setResponseXMLParser:responseObject];
+        }
+
+#ifdef __MAC_OS_X_VERSION_MIN_REQUIRED
+        if ([responseObject isKindOfClass:[NSXMLDocument class]]) {
+            [strongSelf setResponseXMLDocument:responseObject];
+        }
+#endif
+
+        if (success) {
+            success(operation, responseObject);
+        }
+    } failure:^(AFHTTPRequestOperation *operation, NSError *error) {
+        __strong __typeof(weakSelf)strongSelf = weakSelf;
+        [strongSelf setError:error];
+
+        if (failure) {
+            failure(operation, error);
+        }
+    }];
 }
 
 #pragma mark - NSOperation
@@ -124,44 +173,6 @@ static dispatch_queue_t xml_request_operation_processing_queue() {
     [super cancel];
 
     self.responseXMLParser.delegate = nil;
-}
-
-#pragma mark - AFHTTPRequestOperation
-
-+ (NSSet *)acceptableContentTypes {
-    return [NSSet setWithObjects:@"application/xml", @"text/xml", nil];
-}
-
-+ (BOOL)canProcessRequest:(NSURLRequest *)request {
-    return [[[request URL] pathExtension] isEqualToString:@"xml"] || [super canProcessRequest:request];
-}
-
-- (void)setCompletionBlockWithSuccess:(void (^)(AFHTTPRequestOperation *operation, id responseObject))success
-                              failure:(void (^)(AFHTTPRequestOperation *operation, NSError *error))failure
-{
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-retain-cycles"
-#pragma clang diagnostic ignored "-Wgnu"
-    self.completionBlock = ^ {
-        dispatch_async(xml_request_operation_processing_queue(), ^(void) {
-            NSXMLParser *XMLParser = self.responseXMLParser;
-
-            if (self.error) {
-                if (failure) {
-                    dispatch_async(self.failureCallbackQueue ?: dispatch_get_main_queue(), ^{
-                        failure(self, self.error);
-                    });
-                }
-            } else {
-                if (success) {
-                    dispatch_async(self.successCallbackQueue ?: dispatch_get_main_queue(), ^{
-                        success(self, XMLParser);
-                    });
-                }
-            }
-        });
-    };
-#pragma clang diagnostic pop
 }
 
 @end

@@ -48,7 +48,8 @@
     self.afArchiver = [[AFHARchiver alloc] initWithPath:filePath error:nil];
     [self.afArchiver
      setShouldArchiveOperationBlock:^BOOL(AFHTTPRequestOperation *operation) {
-         return [operation isKindOfClass:[AFJSONRequestOperation class]];
+         AFHTTPSerializer * responseSerializer = (AFHTTPSerializer*)operation.responseSerializer;
+         return ![responseSerializer isKindOfClass:[AFImageSerializer class]];
      }];
     [self.afArchiver startArchiving];
 }
