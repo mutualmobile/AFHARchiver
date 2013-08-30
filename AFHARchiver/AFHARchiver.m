@@ -373,7 +373,9 @@ typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * 
     }
     NSDictionary * requestDictionary = AFHTTPArchiveRequestDictionaryForRequest(currentRequest);
     NSDictionary * responseDictionary = AFHTTPArchiveResponseDictionaryForResponse(redirectResponse, nil);
-    [self archiveHTTPArchiveDictionary:AFHTTPArchiveEntryDictionary(startTime, endTime, requestDictionary, responseDictionary)];
+    if([self shouldArchiveOperation:operation]){
+        [self archiveHTTPArchiveDictionary:AFHTTPArchiveEntryDictionary(startTime, endTime, requestDictionary, responseDictionary)];
+    }
     //Reset the start time
     objc_setAssociatedObject(operation, AFHTTPRequestOperationArchivingStartDate, endTime, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
