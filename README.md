@@ -41,7 +41,6 @@ There is some advanced functionality that has not yet been implemented that will
 * Split the **duration** of the request into the proper time buckets. Currently all time is passed to the duration bucket.
 * Determine if responses are returning from a local cache using the **cache** property.
 * Log all cookie information to the **cookie** property.
-* Include redirect information in the **redirectURL** property.
 * Calculate the correct **headerSize**.
 
 ## Credits
