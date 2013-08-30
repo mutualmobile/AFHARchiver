@@ -209,6 +209,7 @@ static NSDictionary * AFHTTPArchiveEntryDictionaryForOperation(AFHTTPRequestOper
     
     return AFHTTPArchiveEntryDictionary(startTime,endTime,requestDictionary,responseDictionary);
 }
+
 static dispatch_queue_t af_http_request_operation_archiving_queue;
 static dispatch_queue_t http_request_operation_archiving_queue() {
     if (af_http_request_operation_archiving_queue == NULL) {
@@ -217,6 +218,23 @@ static dispatch_queue_t http_request_operation_archiving_queue() {
     
     return af_http_request_operation_archiving_queue;
 }
+
+#import <objc/runtime.h>
+@interface AFURLConnectionOperation(ArchiveRedirect)
+- (NSURLRequest *)afharchiverswizzled_connection:(NSURLConnection *)connection
+                                 willSendRequest:(NSURLRequest *)request
+                                redirectResponse:(NSURLResponse *)redirectResponse;
+@end
+
+@interface AFHARchiverManager : NSObject
+@property (nonatomic, strong) NSMutableArray * archivers;
+
++ (instancetype)sharedInstance;
+
+-(void)addArchiver:(AFHARchiver*)archiver;
+-(void)removeArchiver:(AFHARchiver*)archiver;
+
+@end
 
 typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * operation);
 
@@ -237,48 +255,74 @@ typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * 
 
 @implementation AFHARchiver
 
+-(id)init{
+    NSLog(@"Must use initWithPath:error");
+    [self doesNotRecognizeSelector:_cmd];
+    return nil;
+}
+
 -(id)initWithPath:(NSString*)filePath error:(NSError **)error{
-    self = [self init];
+    self = [super init];
     if(self){
-        self.taskStartTimeTrackingTable = [NSMutableDictionary dictionary];
-        self.taskEndTimeTrackingTable = [NSMutableDictionary dictionary];
-        
-        [self setFilePath:filePath];
-        
-        NSString * appName = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleDisplayName"];
-        if(appName)
-            [self setCreatorName:appName];
-        
-        NSString * version = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"];
-        if(version)
-            [self setCreatorVersion:version];
-        
-        NSString * directoryPath = [filePath stringByDeletingLastPathComponent];
-        
-        [[NSFileManager defaultManager] createDirectoryAtPath:directoryPath
-                                  withIntermediateDirectories:YES
-                                                   attributes:nil
-                                                        error:error];
-        
-        [[NSFileManager defaultManager] createFileAtPath:filePath contents:nil attributes:nil];
-        
-        dispatch_async(http_request_operation_archiving_queue(), ^{
-            NSFileHandle * writeHandle = [NSFileHandle fileHandleForWritingAtPath:self.filePath];
-            
-            NSData * JSONData = [self HTTPArchiveJSONData];
-            
-            [writeHandle writeData:JSONData];
-            
-            [writeHandle closeFile];
-            
-            NSData * entryData = [@"\"entries\":[]" dataUsingEncoding:NSUTF8StringEncoding];
-            NSRange range = [JSONData rangeOfData:entryData options:0 range:NSMakeRange(0, [JSONData length])];
-            self.filePosition = range.location+range.length-1;
-            
-        });
-        
+        [self setupRedirectSwizzle];
+        [self setupDefaultSessionValuesForFilePath:filePath];
+        [self setupShellFileForFilePath:filePath error:error];
+        [[AFHARchiverManager sharedInstance] addArchiver:self];
     }
     return self;
+}
+
+-(void)setupRedirectSwizzle{
+    Method original, swizzled;
+    
+    original = class_getInstanceMethod([AFURLConnectionOperation class], @selector(connection:willSendRequest:redirectResponse:));
+    swizzled = class_getInstanceMethod([AFURLConnectionOperation class], @selector(afharchiverswizzled_connection:willSendRequest:redirectResponse:));
+    method_exchangeImplementations(original, swizzled);
+}
+
+-(void)setupDefaultSessionValuesForFilePath:(NSString *)filePath{
+    
+    self.taskStartTimeTrackingTable = [NSMutableDictionary dictionary];
+    self.taskEndTimeTrackingTable = [NSMutableDictionary dictionary];
+    
+    [self setFilePath:filePath];
+    
+    NSString * appName = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleDisplayName"];
+    if(appName){
+        [self setCreatorName:appName];
+    }
+    
+    NSString * version = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"];
+    if(version){
+        [self setCreatorVersion:version];
+    }
+    
+}
+
+-(void)setupShellFileForFilePath:(NSString*)filePath error:(NSError**)error{
+    NSString * directoryPath = [filePath stringByDeletingLastPathComponent];
+    
+    [[NSFileManager defaultManager] createDirectoryAtPath:directoryPath
+                              withIntermediateDirectories:YES
+                                               attributes:nil
+                                                    error:error];
+    
+    [[NSFileManager defaultManager] createFileAtPath:filePath contents:nil attributes:nil];
+    
+    dispatch_async(http_request_operation_archiving_queue(), ^{
+        NSFileHandle * writeHandle = [NSFileHandle fileHandleForWritingAtPath:self.filePath];
+        
+        NSData * JSONData = [self HTTPArchiveJSONData];
+        
+        [writeHandle writeData:JSONData];
+        
+        [writeHandle closeFile];
+        
+        NSData * entryData = [@"\"entries\":[]" dataUsingEncoding:NSUTF8StringEncoding];
+        NSRange range = [JSONData rangeOfData:entryData options:0 range:NSMakeRange(0, [JSONData length])];
+        self.filePosition = range.location+range.length-1;
+        
+    });
 }
 
 -(void)startArchiving{
@@ -338,6 +382,7 @@ typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * 
     if(self.isArchiving == YES){
         [self stopArchiving];
     }
+    [[AFHARchiverManager sharedInstance] removeArchiver:self];
 }
 
 
@@ -429,6 +474,59 @@ typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * 
 -(void)archiveOperation:(AFHTTPRequestOperation *)operation{
     NSDictionary * dictionary = AFHTTPArchiveEntryDictionaryForOperation(operation);
     [self archiveHTTPArchiveDictionary:dictionary];
+}
+
+@end
+
+
+@implementation AFHARchiverManager
+
++ (instancetype)sharedInstance {
+    static id sharedInstance = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        sharedInstance = [[self alloc] init];
+    });
+    
+    return sharedInstance;
+}
+
+-(id)init{
+    self = [super init];
+    if(self){
+        self.archivers = [NSMutableArray array];
+    }
+    return self;
+}
+
+-(void)addArchiver:(AFHARchiver *)archiver{
+    [self.archivers addObject:archiver];
+}
+
+-(void)removeArchiver:(AFHARchiver *)archiver{
+    [self.archivers removeObject:archiver];
+}
+
+@end
+
+@implementation AFURLConnectionOperation(ArchiveRedirect)
+
+- (NSURLRequest *)afharchiverswizzled_connection:(NSURLConnection *)connection
+                                 willSendRequest:(NSURLRequest *)request
+                                redirectResponse:(NSURLResponse *)redirectResponse{
+    NSURLRequest * returnedRequest = [self afharchiverswizzled_connection:connection
+                                                          willSendRequest:request
+                                                         redirectResponse:redirectResponse];
+    if(redirectResponse){
+        [[[AFHARchiverManager sharedInstance] archivers]
+         enumerateObjectsUsingBlock:^(AFHARchiver *archiver, NSUInteger idx, BOOL *stop) {
+             [archiver operationDidRedirect:(AFHTTPRequestOperation*)self
+                             currentRequest:connection.currentRequest
+                                 newRequest:returnedRequest
+                           redirectResponse:(NSHTTPURLResponse*)redirectResponse];
+         }];
+    }
+    return returnedRequest;
 }
 
 @end

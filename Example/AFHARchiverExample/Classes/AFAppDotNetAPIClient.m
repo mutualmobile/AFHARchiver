@@ -67,30 +67,6 @@ static NSString * const kAFAppDotNetAPIBaseURLString = @"http://alpha-api.app.ne
     return self;
 }
 
--(AFHTTPRequestOperation*)HTTPRequestOperationWithRequest:(NSURLRequest *)urlRequest success:(void (^)(AFHTTPRequestOperation *, id))success failure:(void (^)(AFHTTPRequestOperation *, NSError *))failure{
-    AFHTTPRequestOperation * op = [super HTTPRequestOperationWithRequest:urlRequest success:success failure:failure];
-    
-    __weak AFHTTPRequestOperation *weakOp = op;
-    [op setRedirectResponseBlock:^NSURLRequest *(NSURLConnection *connection, NSURLRequest *request, NSURLResponse *redirectResponse) {
-        if(redirectResponse){
-            NSMutableURLRequest * newRequest = [connection.currentRequest mutableCopy];
-            [newRequest setURL:request.URL];
-            
-            [self.afArchiver operationDidRedirect:weakOp
-                                   currentRequest:connection.currentRequest
-                                       newRequest:newRequest
-                                 redirectResponse:(NSHTTPURLResponse*)redirectResponse];
-
-            return newRequest;
-        }
-        else {
-            return request;
-        }
-    }];
-    
-    return op;
-}
-
 -(void)setupArchiver{
     NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
     NSString *documentsDirectory = [paths objectAtIndex:0];
