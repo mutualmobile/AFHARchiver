@@ -273,11 +273,14 @@ typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * 
 }
 
 -(void)setupRedirectSwizzle{
-    Method original, swizzled;
-    
-    original = class_getInstanceMethod([AFURLConnectionOperation class], @selector(connection:willSendRequest:redirectResponse:));
-    swizzled = class_getInstanceMethod([AFURLConnectionOperation class], @selector(afharchiverswizzled_connection:willSendRequest:redirectResponse:));
-    method_exchangeImplementations(original, swizzled);
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        Method original, swizzled;
+        
+        original = class_getInstanceMethod([AFURLConnectionOperation class], @selector(connection:willSendRequest:redirectResponse:));
+        swizzled = class_getInstanceMethod([AFURLConnectionOperation class], @selector(afharchiverswizzled_connection:willSendRequest:redirectResponse:));
+        method_exchangeImplementations(original, swizzled);
+    });
 }
 
 -(void)setupDefaultSessionValuesForFilePath:(NSString *)filePath{
@@ -522,10 +525,12 @@ typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * 
     if(redirectResponse){
         [[[AFHARchiverManager sharedInstance] archivers]
          enumerateObjectsUsingBlock:^(AFHARchiver *archiver, NSUInteger idx, BOOL *stop) {
-             [archiver operationDidRedirect:(AFHTTPRequestOperation*)self
-                             currentRequest:connection.currentRequest
-                                 newRequest:returnedRequest
-                           redirectResponse:(NSHTTPURLResponse*)redirectResponse];
+             if([archiver isArchiving]){
+                 [archiver operationDidRedirect:(AFHTTPRequestOperation*)self
+                                 currentRequest:connection.currentRequest
+                                     newRequest:returnedRequest
+                               redirectResponse:(NSHTTPURLResponse*)redirectResponse];
+             }
          }];
     }
     return returnedRequest;
