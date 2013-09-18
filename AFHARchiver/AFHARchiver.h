@@ -21,7 +21,8 @@
 // THE SOFTWARE.
 
 #import <Foundation/Foundation.h>
-#import "AFNetworking.h"
+#import <AFNetworking/AFNetworking.h>
+#import <AFNetworking/AFSerialization.h>
 
 /**
  `AFHARchiver` is a class for creating an HTTP Archive (HAR) file that can be used for logging information around specific requests. This class will listen for 'AFHTTPRequestOperations' to complete, and log them directly to disk.
@@ -90,7 +91,7 @@
  
  @discussion This method can be used to prevent certain operations from being logged. For example, you may only want to log specific API requests, so this block can be used to inspect the operation, and determine if it should be logged. A more common use would be to inspect and see if the operation is an 'AFImageRequestOperation', and choose not to log it. This can save a significant amount of disk space.
  */
--(void)setShouldArchiveOperationBlock:(BOOL (^)(AFHTTPRequestOperation * operation))block;
+-(void)setShouldArchiveOperationBlock:(BOOL (^)(AFHTTPRequestOperation *operation))block;
 
 ///-----------------------------------------
 /// @name Archiving Tasks
@@ -103,6 +104,6 @@
  
  @discussion This method can be used to prevent certain tasks from being logged. For example, you may only want to log specific API requests, so this block can be used to inspect the task, and determine if it should be logged. A more common use would be to inspect and see if the task is contains image data, and choose not to log it. This can save a significant amount of disk space.
  */
--(void)setShouldArchiveTaskBlock:(BOOL (^)(NSURLSessionTask * task))block;
+-(void)setShouldArchiveTaskBlock:(BOOL (^)(NSURLSessionTask *task, id<AFURLResponseSerialization> responseSerializer, id serializedResponse))block;
 
 @end

@@ -210,9 +210,9 @@ static NSDictionary * AFHTTPArchiveEntryDictionaryForOperation(AFHTTPRequestOper
     return AFHTTPArchiveEntryDictionary(startTime,endTime,requestDictionary,responseDictionary);
 }
 
-static NSDictionary * AFHTTPArchiveEntryDictionaryForTask(NSURLSessionTask *task, NSDate *startTime, NSDate *endTime){
+static NSDictionary * AFHTTPArchiveEntryDictionaryForTask(NSURLSessionTask *task, NSData *responseData, NSDate *startTime, NSDate *endTime){
     NSDictionary *requestDictionary = AFHTTPArchiveRequestDictionaryForRequest(task.currentRequest);
-    NSDictionary *responseDictionary = AFHTTPArchiveResponseDictionaryForResponse((NSHTTPURLResponse*)task.response, nil);
+    NSDictionary *responseDictionary = AFHTTPArchiveResponseDictionaryForResponse((NSHTTPURLResponse*)task.response, responseData);
     
     return AFHTTPArchiveEntryDictionary(startTime,endTime,requestDictionary,responseDictionary);
 }
@@ -251,8 +251,8 @@ static dispatch_queue_t http_request_operation_archiving_queue() {
 
 @end
 
-typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * operation);
-typedef BOOL (^AFHARchiverShouldARchiveTaskBlock)(NSURLSessionTask * task);
+typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation *operation);
+typedef BOOL (^AFHARchiverShouldArchiveTaskBlock)(NSURLSessionTask *task, id<AFURLResponseSerialization> responseSerializer,id serializedResponse);
 
 @interface AFHARchiver ()
 @property (nonatomic,assign) BOOL isArchiving;
@@ -263,7 +263,7 @@ typedef BOOL (^AFHARchiverShouldARchiveTaskBlock)(NSURLSessionTask * task);
 @property (nonatomic,strong) NSString * creatorVersion;
 
 @property (readwrite, nonatomic, copy) AFHARchiverShouldArchiveOperationBlock shouldArchiveOperationHandlerBlock;
-@property (readwrite, nonatomic, copy) AFHARchiverShouldARchiveTaskBlock shouldArchiveTaskHandlerBlock;
+@property (readwrite, nonatomic, copy) AFHARchiverShouldArchiveTaskBlock shouldArchiveTaskHandlerBlock;
 
 @property (nonatomic,strong) NSMutableDictionary * taskStartTimeTrackingTable;
 @property (nonatomic,strong) NSMutableDictionary * taskEndTimeTrackingTable;
@@ -406,7 +406,7 @@ typedef BOOL (^AFHARchiverShouldARchiveTaskBlock)(NSURLSessionTask * task);
     self.shouldArchiveOperationHandlerBlock = block;
 }
 
--(void)setShouldArchiveTaskBlock:(BOOL (^)(NSURLSessionTask *))block{
+-(void)setShouldArchiveTaskBlock:(BOOL (^)(NSURLSessionTask *, id<AFURLResponseSerialization>, id))block{
     self.shouldArchiveTaskHandlerBlock = block;
 }
 
@@ -486,16 +486,23 @@ typedef BOOL (^AFHARchiverShouldARchiveTaskBlock)(NSURLSessionTask * task);
 -(void)taskDidFinish:(NSNotification*)notification{
     NSURLSessionTask * task = [notification object];
     NSString * taskID = [NSString stringWithFormat:@"%d",[task taskIdentifier]];
+    id responseSerializer = notification.userInfo[AFNetworkingTaskDidFinishResponseSerializerKey];
+    NSData * responseData = notification.userInfo[AFNetworkingTaskDidFinishResponseDataKey];
+    id serializedResponse = notification.userInfo[AFNetworkingTaskDidFinishSerializedResponseKey];
     [self.taskEndTimeTrackingTable setValue:[NSDate date] forKey:taskID];
-    if([self shouldArchiveTask:task]){
-        [self archiveTask:task];
+    if([self shouldArchiveTask:task responseSerializer:responseSerializer serializedResponse:serializedResponse]){
+        [self archiveTask:task responseData:responseData];
     }
     
     [self.taskEndTimeTrackingTable removeObjectForKey:taskID];
     [self.taskStartTimeTrackingTable removeObjectForKey:taskID];
 }
 
--(void)taskDidRedirect:(NSURLSessionTask *)task currentRequest:(NSURLRequest*)currentRequest newRequest:(NSURLRequest *)newRequest redirectResponse:(NSHTTPURLResponse *)redirectResponse{
+-(void)taskDidRedirect:(NSURLSessionTask *)task
+    responseSerializer:(id<AFURLResponseSerialization>)responseSerializer
+        currentRequest:(NSURLRequest*)currentRequest
+            newRequest:(NSURLRequest *)newRequest
+      redirectResponse:(NSHTTPURLResponse *)redirectResponse{
     NSDate * endTime = [NSDate date];
     NSDictionary * requestDictionary = AFHTTPArchiveRequestDictionaryForRequest(currentRequest);
     NSDictionary * responseDictionary = AFHTTPArchiveResponseDictionaryForResponse(redirectResponse, nil);
@@ -505,26 +512,29 @@ typedef BOOL (^AFHARchiverShouldARchiveTaskBlock)(NSURLSessionTask * task);
     if(!startTime){
         startTime = endTime;
     }
-    if([self shouldArchiveTask:task]){
+    if([self shouldArchiveTask:task responseSerializer:responseSerializer serializedResponse:nil]){
         [self archiveHTTPArchiveDictionary:AFHTTPArchiveEntryDictionary(startTime, endTime, requestDictionary, responseDictionary)];
     }
     [self.taskStartTimeTrackingTable setValue:[NSDate date] forKey:taskID];
 }
 
--(BOOL)shouldArchiveTask:(NSURLSessionTask*)task{
+-(BOOL)shouldArchiveTask:(NSURLSessionTask*)task
+      responseSerializer:(id<AFURLResponseSerialization>)responseSerializer
+      serializedResponse:(id)serializedResponse
+{
     if(self.shouldArchiveTaskHandlerBlock){
-        return self.shouldArchiveTaskHandlerBlock(task);
+        return self.shouldArchiveTaskHandlerBlock(task,responseSerializer,serializedResponse);
     }
     else {
         return YES;
     }
 }
 
--(void)archiveTask:(NSURLSessionTask*)task{
+-(void)archiveTask:(NSURLSessionTask*)task responseData:(NSData*)responseData{
     NSString * taskID = [NSString stringWithFormat:@"%d",[task taskIdentifier]];
     NSDate * startTime = [self.taskStartTimeTrackingTable valueForKey:taskID];
     NSDate * endTime = [self.taskEndTimeTrackingTable valueForKey:taskID];
-    NSDictionary * dictionary = AFHTTPArchiveEntryDictionaryForTask(task, startTime, endTime);
+    NSDictionary * dictionary = AFHTTPArchiveEntryDictionaryForTask(task,responseData, startTime, endTime);
     [self archiveHTTPArchiveDictionary:dictionary];
 }
 
@@ -640,6 +650,7 @@ typedef BOOL (^AFHARchiverShouldARchiveTaskBlock)(NSURLSessionTask * task);
             willPerformHTTPRedirection:(NSHTTPURLResponse *)response
                             newRequest:(NSURLRequest *)request
                      completionHandler:(void (^)(NSURLRequest *))completionHandler{
+    __weak __typeof(&*self)weakSelf = self;
     [self
      afharchiverswizzled_URLSession:session
      task:task
@@ -650,6 +661,7 @@ typedef BOOL (^AFHARchiverShouldARchiveTaskBlock)(NSURLSessionTask * task);
              [[[AFHARchiverManager sharedInstance] archivers]
               enumerateObjectsUsingBlock:^(AFHARchiver *archiver, NSUInteger idx, BOOL *stop) {
                   [archiver taskDidRedirect:task
+                         responseSerializer:weakSelf.responseSerializer
                              currentRequest:task.currentRequest
                                  newRequest:redirectedRequest
                            redirectResponse:response];
