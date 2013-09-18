@@ -25,13 +25,19 @@ self.afArchiver = [[AFHARchiver alloc] initWithPath:filePath error:nil];
 [self.afArchiver startArchiving];
 ```
 
-## Archiving Specific Requests
+## Archiving Specific AFHTTPRequestOperations/NSURLSessionTasks
 
-You will most likely run into a scenerio where you only want to archive specific requests. The most common use has been to ignore logging image files to prevent your archive from growing too large in size. You can use <tt>setShouldArchiveOperationBlock:</tt> to provide custom archiving behavior.
+You will most likely run into a scenario where you only want to archive specific operations. The most common use has been to ignore logging image files to prevent your archive from growing too large in size. For AFHTTPRequestOperations, you can use <tt>setShouldArchiveOperationBlock:</tt>. For NSURLSessionTasks, you can use <tt>setShouldArchiveTaskBlock:</tt>.
 
 ``` objective-c
-[afArchvier setShouldArchiveOperationBlock:^BOOL(AFHTTPRequestOperation *operation) {
-	return !([operation isKindOfClass:[AFImageRequestOperation class]]);
+[self.afArchiver
+ setShouldArchiveOperationBlock:^BOOL(AFHTTPRequestOperation *operation) {
+     return [operation.responseSerializer isKindOfClass:[AFJSONResponseSerializer class]];
+ }];
+[self.afArchiver
+ setShouldArchiveTaskBlock:^BOOL(NSURLSessionTask *task, id<AFURLResponseSerialization> responseSerializer, id serializedResponse) {
+     return [(NSObject*)responseSerializer isKindOfClass:[AFJSONResponseSerializer class]];
+ }];
 }];
 ```
 
@@ -41,7 +47,6 @@ There is some advanced functionality that has not yet been implemented that will
 * Split the **duration** of the request into the proper time buckets. Currently all time is passed to the duration bucket.
 * Determine if responses are returning from a local cache using the **cache** property.
 * Log all cookie information to the **cookie** property.
-* Include redirect information in the **redirectURL** property.
 * Calculate the correct **headerSize**.
 
 ## Credits

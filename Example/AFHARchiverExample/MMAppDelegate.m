@@ -54,7 +54,7 @@
      }];
     [self.afArchiver
      setShouldArchiveTaskBlock:^BOOL(NSURLSessionTask *task, id<AFURLResponseSerialization> responseSerializer, id serializedResponse) {
-         return YES;
+         return [(NSObject*)responseSerializer isKindOfClass:[AFJSONResponseSerializer class]];
      }];
     [self.afArchiver startArchiving];
 }
