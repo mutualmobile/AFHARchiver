@@ -23,6 +23,7 @@
 #import <Foundation/Foundation.h>
 
 #import <Availability.h>
+#import "AFSecurityPolicy.h"
 
 /**
  `AFURLConnectionOperation` is a subclass of `NSOperation` that implements `NSURLConnection` delegate methods.
@@ -79,12 +80,6 @@
  - Operation copies do not include `completionBlock`, as it often strongly captures a reference to `self`, which would otherwise have the unintuitive side-effect of pointing to the _original_ operation when copied.
  */
 
-typedef NS_ENUM(NSUInteger, AFURLConnectionOperationSSLPinningMode) {
-    AFSSLPinningModeNone,
-    AFSSLPinningModePublicKey,
-    AFSSLPinningModeCertificate,
-};
-
 @interface AFURLConnectionOperation : NSOperation <NSURLConnectionDelegate, NSURLConnectionDataDelegate, NSCoding, NSCopying>
 
 ///-------------------------------
@@ -114,11 +109,6 @@ typedef NS_ENUM(NSUInteger, AFURLConnectionOperationSSLPinningMode) {
  The error, if any, that occurred in the lifecycle of the request.
  */
 @property (readonly, nonatomic, strong) NSError *error;
-
-/**
- Whether the connection should accept an invalid SSL certificate. `NO` by default.
- */
-@property (nonatomic, assign) BOOL allowsInvalidSSLCertificate;
 
 ///----------------------------
 /// @name Getting Response Data
@@ -159,10 +149,14 @@ typedef NS_ENUM(NSUInteger, AFURLConnectionOperationSSLPinningMode) {
  */
 @property (nonatomic, strong) NSURLCredential *credential;
 
+///-------------------------------
+/// @name Managing Security Policy
+///-------------------------------
+
 /**
- The pinning mode which will be used for SSL connections. `AFSSLPinningModePublicKey` by default.
+ The security policy used to evaluate server trust for secure connections.
  */
-@property (nonatomic, assign) AFURLConnectionOperationSSLPinningMode SSLPinningMode;
+@property (nonatomic, strong) AFSecurityPolicy *securityPolicy;
 
 ///------------------------
 /// @name Accessing Streams
@@ -181,6 +175,20 @@ typedef NS_ENUM(NSUInteger, AFURLConnectionOperationSSLPinningMode) {
  By default, data is accumulated into a buffer that is stored into `responseData` upon completion of the request. When `outputStream` is set, the data will not be accumulated into an internal buffer, and as a result, the `responseData` property of the completed request will be `nil`. The output stream will be scheduled in the network thread runloop upon being set.
  */
 @property (nonatomic, strong) NSOutputStream *outputStream;
+
+///---------------------------------
+/// @name Managing Callback Queues
+///---------------------------------
+
+/**
+ The dispatch queue for `completionBlock`. If `NULL` (default), the main queue is used.
+ */
+@property (nonatomic, strong) dispatch_queue_t completionQueue;
+
+/**
+ The dispatch group for `completionBlock`. If `NULL` (default), a private dispatch group is used.
+ */
+@property (nonatomic, strong) dispatch_group_t completionGroup;
 
 ///---------------------------------------------
 /// @name Managing Request Operation Information
@@ -287,6 +295,15 @@ typedef NS_ENUM(NSUInteger, AFURLConnectionOperationSSLPinningMode) {
  @param block A block object to be executed to determine what response a connection will cache, if any. The block returns an `NSCachedURLResponse` object, the cached response to store in memory or `nil` to prevent the response from being cached, and takes two arguments: the URL connection object, and the cached response provided for the request.
  */
 - (void)setCacheResponseBlock:(NSCachedURLResponse * (^)(NSURLConnection *connection, NSCachedURLResponse *cachedResponse))block;
+
+///
+
+/**
+
+ */
++ (NSArray *)batchOfRequestOperations:(NSArray *)operations
+                        progressBlock:(void (^)(NSUInteger numberOfFinishedOperations, NSUInteger totalNumberOfOperations))progressBlock
+                      completionBlock:(void (^)(NSArray *operations))completionBlock;
 
 @end
 

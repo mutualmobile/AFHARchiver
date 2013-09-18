@@ -20,10 +20,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-#import "AFHTTPClient.h"
+#import "AFHTTPSessionManager.h"
 
 #import "AFEventSource.h"
-#import "AFJSONPatchSerializer.h"
+#import "AFJSONPatchResponseSerializer.h"
 
 /**
  This category adds methods to AFNetworking's `AFHTTPClient` class related to real-time networking with Rocket.
@@ -32,7 +32,7 @@
  
  @see http://rocket.github.io
  */
-@interface AFHTTPClient (Rocket)
+@interface AFHTTPSessionManager (Rocket)
 
 /**
  Creates and opens an event source with a `SUBSCRIBE` URL request to the specified URL string, executing a block for each received event.
@@ -57,7 +57,7 @@
  @return An event source, opened to the request created with the specified URL request.
  */
 - (AFEventSource *)openEventSourceWithRequest:(NSURLRequest *)request
-                                   serializer:(AFJSONPatchSerializer *)serializer
+                                   serializer:(AFJSONPatchResponseSerializer *)serializer
                                    usingBlock:(void (^)(NSArray *operations, NSError *error))block
                                         error:(NSError * __autoreleasing *)error;
 

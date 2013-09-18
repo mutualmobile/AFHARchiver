@@ -57,12 +57,12 @@
         return nil;
     }
 
-    self.responseSerializer = [AFJSONSerializer serializer];
+    self.responseSerializer = [AFJSONResponseSerializer serializer];
 
     return self;
 }
 
-#pragma mark AFJSONRequestOperation
+#pragma mark - AFJSONRequestOperation
 
 - (id)responseJSON {
     [self.lock lock];
@@ -77,13 +77,13 @@
 }
 
 - (NSJSONReadingOptions)JSONReadingOptions {
-    return [(AFJSONSerializer *)self.responseSerializer readingOptions];
+    return [(AFJSONResponseSerializer *)self.responseSerializer readingOptions];
 }
 
 - (void)setJSONReadingOptions:(NSJSONReadingOptions)JSONReadingOptions {
     [self.lock lock];
     if (self.JSONReadingOptions != JSONReadingOptions) {
-        [(AFJSONSerializer *)self.responseSerializer setReadingOptions:JSONReadingOptions];
+        [(AFJSONResponseSerializer *)self.responseSerializer setReadingOptions:JSONReadingOptions];
 
         self.responseJSON = nil;
     }

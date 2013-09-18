@@ -20,10 +20,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-#import "AFJSONPatchSerializer.h"
+#import "AFJSONPatchResponseSerializer.h"
 #import "AFHTTPRequestOperation.h"
 
-@implementation AFJSONPatchSerializer
+@implementation AFJSONPatchResponseSerializer
 
 - (instancetype)init {
     self = [super init];
@@ -36,7 +36,7 @@
     return self;
 }
 
-#pragma mark - AFURLRequestSerialization
+#pragma mark - AFURLResponseSerialization
 
 - (id)responseObjectForResponse:(NSURLResponse *)response
                            data:(NSData *)data
@@ -86,10 +86,8 @@
             return [AFJSONPatchOperation moveOperationFrom:dictionary[@"from"] to:dictionary[@"path"]];
         } else if ([op isEqualToString:@"copy"]) {
             return [AFJSONPatchOperation copyOperationFrom:dictionary[@"from"] to:dictionary[@"path"]];
-        } else if ([op isEqualToString:@"add"]) {
-            return [AFJSONPatchOperation addOperationWithPath:dictionary[@"path"] value:dictionary[@"value"]];
-        } else if ([op isEqualToString:@"add"]) {
-            return [AFJSONPatchOperation addOperationWithPath:dictionary[@"path"] value:dictionary[@"value"]];
+        } else if ([op isEqualToString:@"test"]) {
+            return [AFJSONPatchOperation testOperationWithPath:dictionary[@"path"] value:dictionary[@"value"]];
         } else {
             return nil;
         }
