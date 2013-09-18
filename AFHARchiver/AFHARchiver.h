@@ -85,7 +85,7 @@
 ///-----------------------------------------
 
 /**
- Used to determine if the archiver should log the particular operation.
+ Used to determine if the archiver should log the particular operation. If you do not set this block, all `AFHTTPOperations` will be logged.
  
  @param block A block to be called to determine if an operation should be archived.
  
@@ -98,7 +98,7 @@
 ///-----------------------------------------
 
 /**
- Used to determine if the archiver should log the particular `NSURLSessionTask`.
+ Used to determine if the archiver should log the particular `NSURLSessionTask`. If you do not set this block, all tasks created and managed by an instance of `AFHTTPSessionManager` will be logged.
  
  @param block A block to be called to determine if an `NSURLSessionTask` should be archived.
  

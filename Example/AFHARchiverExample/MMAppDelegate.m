@@ -10,6 +10,8 @@
 #import "GlobalTimelineViewController.h"
 
 #import "AFNetworkActivityIndicatorManager.h"
+#import <AFNetworking/AFNetworking.h>
+#import <AFNetworking/AFSerialization.h>
 
 @implementation MMAppDelegate
 
@@ -46,11 +48,14 @@
     NSLog(@"Logging HAR file at %@",filePath);
     
     self.afArchiver = [[AFHARchiver alloc] initWithPath:filePath error:nil];
-//    [self.afArchiver
-//     setShouldArchiveOperationBlock:^BOOL(AFHTTPRequestOperation *operation) {
-//         AFHTTPSerializer * responseSerializer = (AFHTTPSerializer*)operation.responseSerializer;
-//         return ![responseSerializer isKindOfClass:[AFImageSerializer class]];
-//     }];
+    [self.afArchiver
+     setShouldArchiveOperationBlock:^BOOL(AFHTTPRequestOperation *operation) {
+         return [operation.responseSerializer isKindOfClass:[AFJSONResponseSerializer class]];
+     }];
+    [self.afArchiver
+     setShouldArchiveTaskBlock:^BOOL(NSURLSessionTask *task, id<AFURLResponseSerialization> responseSerializer, id serializedResponse) {
+         return YES;
+     }];
     [self.afArchiver startArchiving];
 }
 
