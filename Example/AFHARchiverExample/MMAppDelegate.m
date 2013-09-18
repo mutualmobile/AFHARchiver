@@ -46,11 +46,11 @@
     NSLog(@"Logging HAR file at %@",filePath);
     
     self.afArchiver = [[AFHARchiver alloc] initWithPath:filePath error:nil];
-    [self.afArchiver
-     setShouldArchiveOperationBlock:^BOOL(AFHTTPRequestOperation *operation) {
-         AFHTTPSerializer * responseSerializer = (AFHTTPSerializer*)operation.responseSerializer;
-         return ![responseSerializer isKindOfClass:[AFImageSerializer class]];
-     }];
+//    [self.afArchiver
+//     setShouldArchiveOperationBlock:^BOOL(AFHTTPRequestOperation *operation) {
+//         AFHTTPSerializer * responseSerializer = (AFHTTPSerializer*)operation.responseSerializer;
+//         return ![responseSerializer isKindOfClass:[AFImageSerializer class]];
+//     }];
     [self.afArchiver startArchiving];
 }
 

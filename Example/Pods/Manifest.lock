@@ -10,9 +10,11 @@ PODS:
   - AFNetworking/Reachability (2.0.0-RC3)
   - AFNetworking/Security (2.0.0-RC3)
   - AFNetworking/Serialization (2.0.0-RC3)
+  - AFNetworking/UIKit+AFNetworking (2.0.0-RC3)
 
 DEPENDENCIES:
   - AFNetworking (= 2.0.0-RC3)
+  - AFNetworking/UIKit+AFNetworking (= 2.0.0-RC3)
 
 SPEC CHECKSUMS:
   AFNetworking: ebc18e280dab2e71f9368cfc8e5c60ed125eec1a

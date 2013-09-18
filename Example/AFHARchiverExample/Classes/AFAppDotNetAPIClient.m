@@ -22,11 +22,11 @@
 
 #import "AFAppDotNetAPIClient.h"
 
-static NSString * const AFAppDotNetAPIBaseURLString = @"http://alpha-api.app.net/";
+static NSString * const AFAppDotNetAPIBaseURLString = @"https://alpha-api.app.net/";
 
 @implementation AFAppDotNetAPIClient
 
-+ (AFAppDotNetAPIClient *)sharedClient {
++ (instancetype)sharedClient {
     static AFAppDotNetAPIClient *_sharedClient = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
