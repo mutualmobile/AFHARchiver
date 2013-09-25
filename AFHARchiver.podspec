@@ -13,7 +13,7 @@ Pod::Spec.new do |s|
     :file => 'LICENSE'
   }
   s.requires_arc = true
-  s.ios.deployment_target = '6.0'
-  s.osx.deployment_target = '10.8'
+  s.ios.deployment_target = '7.0'
+  s.osx.deployment_target = '10.9'
   s.dependency 'AFNetworking', '2.0.0-RC3'
 end
