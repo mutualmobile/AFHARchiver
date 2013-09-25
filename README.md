@@ -25,7 +25,7 @@ self.afArchiver = [[AFHARchiver alloc] initWithPath:filePath error:nil];
 [self.afArchiver startArchiving];
 ```
 
-## Archiving Specific AFHTTPRequestOperations/NSURLSessionTasks
+## Archiving Specific AFHTTPRequestOperations / NSURLSessionTasks
 
 You will most likely run into a scenario where you only want to archive specific operations. The most common use has been to ignore logging image files to prevent your archive from growing too large in size. For AFHTTPRequestOperations, you can use <tt>setShouldArchiveOperationBlock:</tt>. For NSURLSessionTasks, you can use <tt>setShouldArchiveTaskBlock:</tt>.
 
