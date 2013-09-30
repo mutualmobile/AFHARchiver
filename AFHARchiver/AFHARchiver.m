@@ -289,15 +289,18 @@ typedef BOOL (^AFHARchiverShouldArchiveTaskBlock)(NSURLSessionTask *task, id<AFU
 }
 
 -(void)setupRedirectSwizzle{
-    Method original, swizzled;
-    
-    original = class_getInstanceMethod([AFURLConnectionOperation class], @selector(connection:willSendRequest:redirectResponse:));
-    swizzled = class_getInstanceMethod([AFURLConnectionOperation class], @selector(afharchiverswizzled_connection:willSendRequest:redirectResponse:));
-    method_exchangeImplementations(original, swizzled);
-    
-    original = class_getInstanceMethod([AFURLSessionManager class], @selector(URLSession:task:willPerformHTTPRedirection:newRequest:completionHandler:));
-    swizzled = class_getInstanceMethod([AFURLSessionManager class], @selector(afharchiverswizzled_URLSession:task:willPerformHTTPRedirection:newRequest:completionHandler:));
-    method_exchangeImplementations(original, swizzled);
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        Method original, swizzled;
+        
+        original = class_getInstanceMethod([AFURLConnectionOperation class], @selector(connection:willSendRequest:redirectResponse:));
+        swizzled = class_getInstanceMethod([AFURLConnectionOperation class], @selector(afharchiverswizzled_connection:willSendRequest:redirectResponse:));
+        method_exchangeImplementations(original, swizzled);
+        
+        original = class_getInstanceMethod([AFURLSessionManager class], @selector(URLSession:task:willPerformHTTPRedirection:newRequest:completionHandler:));
+        swizzled = class_getInstanceMethod([AFURLSessionManager class], @selector(afharchiverswizzled_URLSession:task:willPerformHTTPRedirection:newRequest:completionHandler:));
+        method_exchangeImplementations(original, swizzled);
+    });
 }
 
 -(void)setupDefaultSessionValuesForFilePath:(NSString *)filePath{
