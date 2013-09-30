@@ -78,7 +78,7 @@ static BOOL AFServerTrustIsValid(SecTrustRef serverTrust) {
 
 static NSArray * AFCertificateTrustChainForServerTrust(SecTrustRef serverTrust) {
     CFIndex certificateCount = SecTrustGetCertificateCount(serverTrust);
-    NSMutableArray *trustChain = [NSMutableArray arrayWithCapacity:certificateCount];
+    NSMutableArray *trustChain = [NSMutableArray arrayWithCapacity:(NSUInteger)certificateCount];
 
     for (CFIndex i = 0; i < certificateCount; i++) {
         SecCertificateRef certificate = SecTrustGetCertificateAtIndex(serverTrust, i);
@@ -91,7 +91,7 @@ static NSArray * AFCertificateTrustChainForServerTrust(SecTrustRef serverTrust) 
 static NSArray * AFPublicKeyTrustChainForServerTrust(SecTrustRef serverTrust) {
     SecPolicyRef policy = SecPolicyCreateBasicX509();
     CFIndex certificateCount = SecTrustGetCertificateCount(serverTrust);
-    NSMutableArray *trustChain = [NSMutableArray arrayWithCapacity:certificateCount];
+    NSMutableArray *trustChain = [NSMutableArray arrayWithCapacity:(NSUInteger)certificateCount];
     for (CFIndex i = 0; i < certificateCount; i++) {
         SecCertificateRef certificate = SecTrustGetCertificateAtIndex(serverTrust, i);
 
@@ -145,19 +145,17 @@ static NSArray * AFPublicKeyTrustChainForServerTrust(SecTrustRef serverTrust) {
 }
 
 + (instancetype)defaultPolicy {
-    AFSecurityPolicy *security = [[self alloc] init];
-    security.SSLPinningMode = AFSSLPinningModePublicKey;
-    security.pinnedCertificates = [[self class] defaultPinnedCertificates];
+    AFSecurityPolicy *securityPolicy = [[self alloc] init];
+    securityPolicy.SSLPinningMode = AFSSLPinningModeNone;
 
-    return security;
+    return securityPolicy;
 }
 
-+ (instancetype)debugPolicy {
-    AFSecurityPolicy *security = [[self alloc] init];
-    security.SSLPinningMode = AFSSLPinningModeNone;
-    security.allowInvalidCertificates = YES;
++ (instancetype)policyWithPinningMode:(AFSSLPinningMode)pinningMode {
+    AFSecurityPolicy *securityPolicy = [[self alloc] init];
+    securityPolicy.SSLPinningMode = pinningMode;
 
-    return security;
+    return securityPolicy;
 }
 
 #pragma mark -

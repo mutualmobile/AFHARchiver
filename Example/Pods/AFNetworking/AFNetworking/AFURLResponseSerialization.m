@@ -31,36 +31,6 @@ extern NSString * const AFNetworkingOperationFailingURLResponseErrorKey;
 #import <Cocoa/Cocoa.h>
 #endif
 
-static NSString * AFStringFromIndexSet(NSIndexSet *indexSet) {
-    NSMutableString *string = [NSMutableString string];
-
-    NSRange range = NSMakeRange([indexSet firstIndex], 1);
-    while (range.location != NSNotFound) {
-        NSUInteger nextIndex = [indexSet indexGreaterThanIndex:range.location];
-        while (nextIndex == range.location + range.length) {
-            range.length++;
-            nextIndex = [indexSet indexGreaterThanIndex:nextIndex];
-        }
-
-        if (string.length) {
-            [string appendString:@","];
-        }
-
-        if (range.length == 1) {
-            [string appendFormat:@"%lu", (long)range.location];
-        } else {
-            NSUInteger firstIndex = range.location;
-            NSUInteger lastIndex = firstIndex + range.length - 1;
-            [string appendFormat:@"%lu-%lu", (long)firstIndex, (long)lastIndex];
-        }
-
-        range.location = nextIndex;
-        range.length = 1;
-    }
-    
-    return string;
-}
-
 @implementation AFHTTPResponseSerializer
 
 + (instancetype)serializer {
@@ -87,11 +57,10 @@ static NSString * AFStringFromIndexSet(NSIndexSet *indexSet) {
                     data:(NSData *)data
                    error:(NSError *__autoreleasing *)error
 {
-    // TODO determine whether this is the correct behavior; is there a better way to extend functionality of serializers, or a better place to put HTTP validation?
     if (response && [response isKindOfClass:[NSHTTPURLResponse class]]) {
-        if (self.acceptableStatusCodes && ![self.acceptableStatusCodes containsIndex:response.statusCode]) {
+        if (self.acceptableStatusCodes && ![self.acceptableStatusCodes containsIndex:(NSUInteger)response.statusCode]) {
             NSDictionary *userInfo = @{
-                                       NSLocalizedDescriptionKey: [NSString stringWithFormat:NSLocalizedStringFromTable(@"Expected status code in (%@), got %d", @"AFNetworking", nil), AFStringFromIndexSet(self.acceptableStatusCodes), response.statusCode],
+                                       NSLocalizedDescriptionKey: [NSString stringWithFormat:NSLocalizedStringFromTable(@"Request failed: %@ (%d), got %d", @"AFNetworking", nil), [NSHTTPURLResponse localizedStringForStatusCode:response.statusCode], response.statusCode],
                                        NSURLErrorFailingURLErrorKey:[response URL],
                                        AFNetworkingOperationFailingURLResponseErrorKey: response
                                        };
@@ -104,7 +73,7 @@ static NSString * AFStringFromIndexSet(NSIndexSet *indexSet) {
             // Don't invalidate content type if there is no content
             if ([data length] > 0) {
                 NSDictionary *userInfo = @{
-                                           NSLocalizedDescriptionKey: [NSString stringWithFormat:NSLocalizedStringFromTable(@"Expected content type %@, got %@", @"AFNetworking", nil), self.acceptableContentTypes, [response MIMEType]],
+                                           NSLocalizedDescriptionKey: [NSString stringWithFormat:NSLocalizedStringFromTable(@"Request failed: unacceptable content-type: %@", @"AFNetworking", nil), [response MIMEType]],
                                            NSURLErrorFailingURLErrorKey:[response URL],
                                            AFNetworkingOperationFailingURLResponseErrorKey: response
                                            };
@@ -126,9 +95,7 @@ static NSString * AFStringFromIndexSet(NSIndexSet *indexSet) {
                            data:(NSData *)data
                           error:(NSError *__autoreleasing *)error
 {
-    if (![self validateResponse:(NSHTTPURLResponse *)response data:data error:error]) {
-        return nil;
-    }
+    [self validateResponse:(NSHTTPURLResponse *)response data:data error:error];
 
     return data;
 }
@@ -149,7 +116,7 @@ static NSString * AFStringFromIndexSet(NSIndexSet *indexSet) {
 
 - (void)encodeWithCoder:(NSCoder *)aCoder {
     [aCoder encodeObject:self.acceptableStatusCodes forKey:@"acceptableStatusCodes"];
-    [aCoder encodeInteger:self.acceptableContentTypes forKey:@"acceptableContentTypes"];
+    [aCoder encodeObject:self.acceptableContentTypes forKey:@"acceptableContentTypes"];
 }
 
 #pragma mark - NSCopying
@@ -199,7 +166,9 @@ static NSString * AFStringFromIndexSet(NSIndexSet *indexSet) {
                           error:(NSError *__autoreleasing *)error
 {
     if (![self validateResponse:(NSHTTPURLResponse *)response data:data error:error]) {
-        return nil;
+        if ([(NSError *)(*error) code] == NSURLErrorCannotDecodeContentData) {
+            return nil;
+        }
     }
 
     // Workaround for behavior of Rails to return a single space for `head :ok` (a workaround for a bug in Safari), which is not interpreted as valid input by NSJSONSerialization.
@@ -286,6 +255,12 @@ static NSString * AFStringFromIndexSet(NSIndexSet *indexSet) {
                            data:(NSData *)data
                           error:(NSError *__autoreleasing *)error
 {
+    if (![self validateResponse:(NSHTTPURLResponse *)response data:data error:error]) {
+        if ([(NSError *)(*error) code] == NSURLErrorCannotDecodeContentData) {
+            return nil;
+        }
+    }
+
     return [[NSXMLParser alloc] initWithData:data];
 }
 
@@ -326,7 +301,9 @@ static NSString * AFStringFromIndexSet(NSIndexSet *indexSet) {
                           error:(NSError *__autoreleasing *)error
 {
     if (![self validateResponse:(NSHTTPURLResponse *)response data:data error:error]) {
-        return nil;
+        if ([(NSError *)(*error) code] == NSURLErrorCannotDecodeContentData) {
+            return nil;
+        }
     }
 
     return [[NSXMLDocument alloc] initWithData:data options:self.options error:error];
@@ -410,7 +387,9 @@ static NSString * AFStringFromIndexSet(NSIndexSet *indexSet) {
                           error:(NSError *__autoreleasing *)error
 {
     if (![self validateResponse:(NSHTTPURLResponse *)response data:data error:error]) {
-        return nil;
+        if ([(NSError *)(*error) code] == NSURLErrorCannotDecodeContentData) {
+            return nil;
+        }
     }
 
     return [NSPropertyListSerialization propertyListWithData:data options:self.readOptions format:nil error:error];
@@ -424,7 +403,7 @@ static NSString * AFStringFromIndexSet(NSIndexSet *indexSet) {
         return nil;
     }
 
-    self.format = [aDecoder decodeIntegerForKey:@"format"];
+    self.format = (NSPropertyListFormat)[aDecoder decodeIntegerForKey:@"format"];
     self.readOptions = [aDecoder decodeIntegerForKey:@"readOptions"];
 
     return self;
@@ -434,7 +413,7 @@ static NSString * AFStringFromIndexSet(NSIndexSet *indexSet) {
     [super encodeWithCoder:aCoder];
 
     [aCoder encodeInteger:self.format forKey:@"format"];
-    [aCoder encodeInteger:self.readOptions forKey:@"readOptions"];
+    [aCoder encodeInteger:(NSInteger)self.readOptions forKey:@"readOptions"];
 }
 
 #pragma mark - NSCopying
@@ -455,12 +434,9 @@ static NSString * AFStringFromIndexSet(NSIndexSet *indexSet) {
 #import <CoreGraphics/CoreGraphics.h>
 
 static UIImage * AFImageWithDataAtScale(NSData *data, CGFloat scale) {
-    if ([UIImage instancesRespondToSelector:@selector(initWithData:scale:)]) {
-        return [[UIImage alloc] initWithData:data scale:scale];
-    } else {
-        UIImage *image = [[UIImage alloc] initWithData:data];
-        return [[UIImage alloc] initWithCGImage:[image CGImage] scale:scale orientation:image.imageOrientation];
-    }
+    UIImage *image = [[UIImage alloc] initWithData:data];
+
+    return [[UIImage alloc] initWithCGImage:[image CGImage] scale:scale orientation:image.imageOrientation];
 }
 
 static UIImage * AFInflatedImageFromResponseWithDataAtScale(NSHTTPURLResponse *response, NSData *data, CGFloat scale) {
@@ -578,7 +554,9 @@ static UIImage * AFInflatedImageFromResponseWithDataAtScale(NSHTTPURLResponse *r
                           error:(NSError *__autoreleasing *)error
 {
     if (![self validateResponse:(NSHTTPURLResponse *)response data:data error:error]) {
-        return nil;
+        if ([(NSError *)(*error) code] == NSURLErrorCannotDecodeContentData) {
+            return nil;
+        }
     }
 
 #if defined(__IPHONE_OS_VERSION_MIN_REQUIRED)
@@ -660,13 +638,14 @@ static UIImage * AFInflatedImageFromResponseWithDataAtScale(NSHTTPURLResponse *r
                            data:(NSData *)data
                           error:(NSError *__autoreleasing *)error
 {
-    for (id serializer in self.responseSerializers) {
+    for (id <AFURLResponseSerialization> serializer in self.responseSerializers) {
         if (![serializer isKindOfClass:[AFHTTPResponseSerializer class]]) {
             continue;
         }
 
-        if ([(AFHTTPResponseSerializer *)serializer validateResponse:(NSHTTPURLResponse *)response data:data error:nil]) {
-            return [serializer responseObjectForResponse:response data:data error:error];
+        id responseObject = [serializer responseObjectForResponse:response data:data error:error];
+        if (responseObject) {
+            return responseObject;
         }
     }
     

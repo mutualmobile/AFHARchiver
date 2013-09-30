@@ -20,14 +20,13 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-#import <Foundation/Foundation.h>
+#import "UIImageView+AFNetworking.h"
+
 #import <objc/runtime.h>
 
-#import "AFHTTPRequestOperation.h"
-#import "AFHTTPSessionManager.h"
-
 #if defined(__IPHONE_OS_VERSION_MIN_REQUIRED)
-#import "UIImageView+AFNetworking.h"
+
+#import "AFHTTPRequestOperation.h"
 
 @interface AFImageCache : NSCache
 - (UIImage *)cachedImageForRequest:(NSURLRequest *)request;
@@ -39,24 +38,12 @@
 
 static char kAFImageRequestOperationKey;
 static char kAFResponseSerializerKey;
-static char kAFSecurityPolicyKey;
-
 
 @interface UIImageView (_AFNetworking)
 @property (readwrite, nonatomic, strong, setter = af_setImageRequestOperation:) AFHTTPRequestOperation *af_imageRequestOperation;
-@property (readwrite, nonatomic, strong, setter = af_setSecurityPolicy:) AFSecurityPolicy *af_securityPolicy;
 @end
 
 @implementation UIImageView (_AFNetworking)
-@dynamic af_imageRequestOperation;
-@dynamic af_securityPolicy;
-@end
-
-#pragma mark -
-
-@implementation UIImageView (AFNetworking)
-@dynamic imageResponseSerializer;
-@dynamic securityPolicy;
 
 + (NSOperationQueue *)af_sharedImageRequestOperationQueue {
     static NSOperationQueue *_af_sharedImageRequestOperationQueue = nil;
@@ -74,6 +61,10 @@ static char kAFSecurityPolicyKey;
     static dispatch_once_t oncePredicate;
     dispatch_once(&oncePredicate, ^{
         _af_imageCache = [[AFImageCache alloc] init];
+
+        [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationDidReceiveMemoryWarningNotification object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification * __unused notification) {
+            [_af_imageCache removeAllObjects];
+        }];
     });
 
     return _af_imageCache;
@@ -87,6 +78,13 @@ static char kAFSecurityPolicyKey;
     objc_setAssociatedObject(self, &kAFImageRequestOperationKey, imageRequestOperation, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
+@end
+
+#pragma mark -
+
+@implementation UIImageView (AFNetworking)
+@dynamic imageResponseSerializer;
+
 - (id <AFURLResponseSerialization>)imageResponseSerializer {
     static id <AFURLResponseSerialization> _af_defaultImageResponseSerializer = nil;
     static dispatch_once_t onceToken;
@@ -94,25 +92,14 @@ static char kAFSecurityPolicyKey;
         _af_defaultImageResponseSerializer = [AFImageResponseSerializer serializer];
     });
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wgnu"
     return objc_getAssociatedObject(self, &kAFResponseSerializerKey) ?: _af_defaultImageResponseSerializer;
+#pragma clang diagnostic pop
 }
 
 - (void)setImageResponseSerializer:(id <AFURLResponseSerialization>)serializer {
     objc_setAssociatedObject(self, &kAFResponseSerializerKey, serializer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-}
-
-- (AFSecurityPolicy *)securityPolicy {
-    static AFSecurityPolicy *_af_defaultSecurityPolicy = nil;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        _af_defaultSecurityPolicy = [AFSecurityPolicy debugPolicy];
-    });
-
-    return objc_getAssociatedObject(self, &kAFSecurityPolicyKey) ?: _af_defaultSecurityPolicy;
-}
-
-- (void)setSecurityPolicy:(AFSecurityPolicy *)securityPolicy {
-    objc_setAssociatedObject(self, &kAFSecurityPolicyKey, securityPolicy, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 #pragma mark -
@@ -152,7 +139,6 @@ static char kAFSecurityPolicyKey;
         __weak __typeof(self)weakSelf = self;
         self.af_imageRequestOperation = [[AFHTTPRequestOperation alloc] initWithRequest:urlRequest];
         self.af_imageRequestOperation.responseSerializer = self.imageResponseSerializer;
-        self.af_imageRequestOperation.securityPolicy = self.securityPolicy;
         [self.af_imageRequestOperation setCompletionBlockWithSuccess:^(AFHTTPRequestOperation *operation, id responseObject) {
             __strong __typeof(weakSelf)strongSelf = weakSelf;
             if ([[urlRequest URL] isEqual:[operation.request URL]]) {
@@ -173,6 +159,7 @@ static char kAFSecurityPolicyKey;
                 }
             }
         }];
+
         [[[self class] af_sharedImageRequestOperationQueue] addOperation:self.af_imageRequestOperation];
     }
 }

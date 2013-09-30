@@ -1,22 +1,26 @@
 PODS:
-  - AFNetworking (2.0.0-RC3):
-    - AFNetworking/Core
-  - AFNetworking/Core (2.0.0-RC3):
+  - AFNetworking (2.0.0):
     - AFNetworking/NSURLConnection
+    - AFNetworking/NSURLSession
     - AFNetworking/Reachability
     - AFNetworking/Security
     - AFNetworking/Serialization
-  - AFNetworking/NSURLConnection (2.0.0-RC3)
-  - AFNetworking/Reachability (2.0.0-RC3)
-  - AFNetworking/Security (2.0.0-RC3)
-  - AFNetworking/Serialization (2.0.0-RC3)
-  - AFNetworking/UIKit+AFNetworking (2.0.0-RC3)
+    - AFNetworking/UIKit
+  - AFNetworking/NSURLConnection (2.0.0):
+    - AFNetworking/Reachability
+    - AFNetworking/Security
+    - AFNetworking/Serialization
+  - AFNetworking/Reachability (2.0.0)
+  - AFNetworking/Security (2.0.0)
+  - AFNetworking/Serialization (2.0.0)
+  - AFNetworking/UIKit (2.0.0):
+    - AFNetworking/NSURLConnection
 
 DEPENDENCIES:
-  - AFNetworking (= 2.0.0-RC3)
-  - AFNetworking/UIKit+AFNetworking (= 2.0.0-RC3)
+  - AFNetworking (= 2.0.0)
+  - AFNetworking/UIKit (= 2.0.0)
 
 SPEC CHECKSUMS:
-  AFNetworking: ebc18e280dab2e71f9368cfc8e5c60ed125eec1a
+  AFNetworking: 3fa983b1beaba69566a3374612511e2a6e3fe845
 
-COCOAPODS: 0.24.0
+COCOAPODS: 0.25.0

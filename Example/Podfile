@@ -1,4 +1,4 @@
 platform :ios, :deployment_target => '6.0'
 
-pod 'AFNetworking', '2.0.0-RC3'
-pod 'AFNetworking/UIKit+AFNetworking', '2.0.0-RC3'
+pod 'AFNetworking', '2.0.0'
+pod 'AFNetworking/UIKit', '2.0.0'
