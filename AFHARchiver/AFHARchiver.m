@@ -21,7 +21,6 @@
 // THE SOFTWARE.
 
 #import "AFHARchiver.h"
-#import "AFImageRequestOperation.h"
 #import <objc/runtime.h>
 
 static void *AFHTTPRequestOperationArchivingStartDate = &AFHTTPRequestOperationArchivingStartDate;

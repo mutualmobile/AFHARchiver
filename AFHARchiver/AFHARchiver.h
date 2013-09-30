@@ -21,7 +21,8 @@
 // THE SOFTWARE.
 
 #import <Foundation/Foundation.h>
-#import "AFNetworking.h"
+#import "AFHTTPRequestOperationManager.h"
+#import "AFHTTPSessionManager.h"
 
 /**
  `AFHARchiver` is a class for creating an HTTP Archive (HAR) file that can be used for logging information around specific requests. This class will listen for 'AFHTTPRequestOperations' to complete, and log them directly to disk.

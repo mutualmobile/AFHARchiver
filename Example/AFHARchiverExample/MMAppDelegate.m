@@ -10,8 +10,6 @@
 #import "GlobalTimelineViewController.h"
 
 #import "AFNetworkActivityIndicatorManager.h"
-#import <AFNetworking/AFNetworking.h>
-#import <AFNetworking/AFSerialization.h>
 
 @implementation MMAppDelegate
 

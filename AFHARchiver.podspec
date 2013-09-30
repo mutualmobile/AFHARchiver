@@ -16,4 +16,5 @@ Pod::Spec.new do |s|
   s.ios.deployment_target = '7.0'
   s.osx.deployment_target = '10.9'
   s.dependency 'AFNetworking', '2.0.0'
+  s.dependency 'AFNetworking/NSURLSession', '2.0.0'
 end
