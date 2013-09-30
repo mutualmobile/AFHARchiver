@@ -34,12 +34,17 @@ You will most likely run into a scenario where you only want to archive specific
  setShouldArchiveOperationBlock:^BOOL(AFHTTPRequestOperation *operation) {
      return [operation.responseSerializer isKindOfClass:[AFJSONResponseSerializer class]];
  }];
+ 
 [self.afArchiver
  setShouldArchiveTaskBlock:^BOOL(NSURLSessionTask *task, id<AFURLResponseSerialization> responseSerializer, id serializedResponse) {
      return [(NSObject*)responseSerializer isKindOfClass:[AFJSONResponseSerializer class]];
  }];
 }];
 ```
+
+##Using AFNetworking 2.0.0, iOS 6, and NSURLConnection
+
+If your application is using AFNetworking 2.0.0, targeting iOS 6, and using the NSURLConnection API's, continue to use AFHARchiver 0.1.0. The current version of AFHARchiver requires the AF/NSURLSession API's included in AFNetworking 2.0.0.
 
 ## A Few TODO's
 
