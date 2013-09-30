@@ -635,10 +635,12 @@ typedef BOOL (^AFHARchiverShouldArchiveTaskBlock)(NSURLSessionTask *task, id<AFU
     if(redirectResponse){
         [[[AFHARchiverManager sharedInstance] archivers]
          enumerateObjectsUsingBlock:^(AFHARchiver *archiver, NSUInteger idx, BOOL *stop) {
-             [archiver operationDidRedirect:(AFHTTPRequestOperation*)self
-                             currentRequest:connection.currentRequest
-                                 newRequest:returnedRequest
-                           redirectResponse:(NSHTTPURLResponse*)redirectResponse];
+             if([archiver isArchiving]){
+                 [archiver operationDidRedirect:(AFHTTPRequestOperation*)self
+                                 currentRequest:connection.currentRequest
+                                     newRequest:returnedRequest
+                               redirectResponse:(NSHTTPURLResponse*)redirectResponse];
+             }
          }];
     }
     return returnedRequest;
