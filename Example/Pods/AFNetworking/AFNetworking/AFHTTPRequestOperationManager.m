@@ -40,7 +40,7 @@
 @implementation AFHTTPRequestOperationManager
 
 + (instancetype)manager {
-    return [[AFHTTPRequestOperationManager alloc] initWithBaseURL:nil];
+    return [[[self class] alloc] initWithBaseURL:nil];
 }
 
 - (instancetype)initWithBaseURL:(NSURL *)url {
@@ -61,11 +61,7 @@
 
     self.securityPolicy = [AFSecurityPolicy defaultPolicy];
 
-    if (self.baseURL.host) {
-        self.reachabilityManager = [AFNetworkReachabilityManager managerForDomain:self.baseURL.host];
-    } else {
-        self.reachabilityManager = [AFNetworkReachabilityManager sharedManager];
-    }
+    self.reachabilityManager = [AFNetworkReachabilityManager sharedManager];
 
     self.operationQueue = [[NSOperationQueue alloc] init];
 
@@ -117,7 +113,7 @@
                         success:(void (^)(AFHTTPRequestOperation *operation, id responseObject))success
                         failure:(void (^)(AFHTTPRequestOperation *operation, NSError *error))failure
 {
-    NSMutableURLRequest *request = [self.requestSerializer requestWithMethod:@"GET" URLString:[[NSURL URLWithString:URLString relativeToURL:self.baseURL] absoluteString] parameters:parameters];
+    NSMutableURLRequest *request = [self.requestSerializer requestWithMethod:@"GET" URLString:[[NSURL URLWithString:URLString relativeToURL:self.baseURL] absoluteString] parameters:parameters error:nil];
     AFHTTPRequestOperation *operation = [self HTTPRequestOperationWithRequest:request success:success failure:failure];
     [self.operationQueue addOperation:operation];
 
@@ -129,7 +125,7 @@
                          success:(void (^)(AFHTTPRequestOperation *operation))success
                          failure:(void (^)(AFHTTPRequestOperation *operation, NSError *error))failure
 {
-    NSMutableURLRequest *request = [self.requestSerializer requestWithMethod:@"HEAD" URLString:[[NSURL URLWithString:URLString relativeToURL:self.baseURL] absoluteString] parameters:parameters];
+    NSMutableURLRequest *request = [self.requestSerializer requestWithMethod:@"HEAD" URLString:[[NSURL URLWithString:URLString relativeToURL:self.baseURL] absoluteString] parameters:parameters error:nil];
     AFHTTPRequestOperation *operation = [self HTTPRequestOperationWithRequest:request success:^(AFHTTPRequestOperation *requestOperation, __unused id responseObject) {
         if (success) {
             success(requestOperation);
@@ -145,7 +141,7 @@
                          success:(void (^)(AFHTTPRequestOperation *operation, id responseObject))success
                          failure:(void (^)(AFHTTPRequestOperation *operation, NSError *error))failure
 {
-    NSMutableURLRequest *request = [self.requestSerializer requestWithMethod:@"POST" URLString:[[NSURL URLWithString:URLString relativeToURL:self.baseURL] absoluteString] parameters:parameters];
+    NSMutableURLRequest *request = [self.requestSerializer requestWithMethod:@"POST" URLString:[[NSURL URLWithString:URLString relativeToURL:self.baseURL] absoluteString] parameters:parameters error:nil];
     AFHTTPRequestOperation *operation = [self HTTPRequestOperationWithRequest:request success:success failure:failure];
     [self.operationQueue addOperation:operation];
 
@@ -158,7 +154,7 @@
                          success:(void (^)(AFHTTPRequestOperation *operation, id responseObject))success
                          failure:(void (^)(AFHTTPRequestOperation *operation, NSError *error))failure
 {
-    NSMutableURLRequest *request = [self.requestSerializer multipartFormRequestWithMethod:@"POST" URLString:[[NSURL URLWithString:URLString relativeToURL:self.baseURL] absoluteString] parameters:parameters constructingBodyWithBlock:block];
+    NSMutableURLRequest *request = [self.requestSerializer multipartFormRequestWithMethod:@"POST" URLString:[[NSURL URLWithString:URLString relativeToURL:self.baseURL] absoluteString] parameters:parameters constructingBodyWithBlock:block error:nil];
     AFHTTPRequestOperation *operation = [self HTTPRequestOperationWithRequest:request success:success failure:failure];
     [self.operationQueue addOperation:operation];
 
@@ -170,7 +166,7 @@
                         success:(void (^)(AFHTTPRequestOperation *operation, id responseObject))success
                         failure:(void (^)(AFHTTPRequestOperation *operation, NSError *error))failure
 {
-    NSMutableURLRequest *request = [self.requestSerializer requestWithMethod:@"PUT" URLString:[[NSURL URLWithString:URLString relativeToURL:self.baseURL] absoluteString] parameters:parameters];
+    NSMutableURLRequest *request = [self.requestSerializer requestWithMethod:@"PUT" URLString:[[NSURL URLWithString:URLString relativeToURL:self.baseURL] absoluteString] parameters:parameters error:nil];
     AFHTTPRequestOperation *operation = [self HTTPRequestOperationWithRequest:request success:success failure:failure];
     [self.operationQueue addOperation:operation];
 
@@ -182,7 +178,7 @@
                           success:(void (^)(AFHTTPRequestOperation *operation, id responseObject))success
                           failure:(void (^)(AFHTTPRequestOperation *operation, NSError *error))failure
 {
-    NSMutableURLRequest *request = [self.requestSerializer requestWithMethod:@"PATCH" URLString:[[NSURL URLWithString:URLString relativeToURL:self.baseURL] absoluteString] parameters:parameters];
+    NSMutableURLRequest *request = [self.requestSerializer requestWithMethod:@"PATCH" URLString:[[NSURL URLWithString:URLString relativeToURL:self.baseURL] absoluteString] parameters:parameters error:nil];
     AFHTTPRequestOperation *operation = [self HTTPRequestOperationWithRequest:request success:success failure:failure];
     [self.operationQueue addOperation:operation];
 
@@ -194,7 +190,7 @@
                            success:(void (^)(AFHTTPRequestOperation *operation, id responseObject))success
                            failure:(void (^)(AFHTTPRequestOperation *operation, NSError *error))failure
 {
-    NSMutableURLRequest *request = [self.requestSerializer requestWithMethod:@"DELETE" URLString:[[NSURL URLWithString:URLString relativeToURL:self.baseURL] absoluteString] parameters:parameters];
+    NSMutableURLRequest *request = [self.requestSerializer requestWithMethod:@"DELETE" URLString:[[NSURL URLWithString:URLString relativeToURL:self.baseURL] absoluteString] parameters:parameters error:nil];
     AFHTTPRequestOperation *operation = [self HTTPRequestOperationWithRequest:request success:success failure:failure];
     [self.operationQueue addOperation:operation];
 
@@ -203,24 +199,24 @@
 
 #pragma mark - NSCoding
 
-- (id)initWithCoder:(NSCoder *)aDecoder {
-    NSURL *baseURL = [aDecoder decodeObjectForKey:@"baseURL"];
+- (id)initWithCoder:(NSCoder *)decoder {
+    NSURL *baseURL = [decoder decodeObjectForKey:NSStringFromSelector(@selector(baseURL))];
 
     self = [self initWithBaseURL:baseURL];
     if (!self) {
         return nil;
     }
 
-    self.requestSerializer = [aDecoder decodeObjectForKey:@"requestSerializer"];
-    self.responseSerializer = [aDecoder decodeObjectForKey:@"responseSerializer"];
+    self.requestSerializer = [decoder decodeObjectForKey:NSStringFromSelector(@selector(requestSerializer))];
+    self.responseSerializer = [decoder decodeObjectForKey:NSStringFromSelector(@selector(responseSerializer))];
 
     return self;
 }
 
-- (void)encodeWithCoder:(NSCoder *)aCoder {
-    [aCoder encodeObject:self.baseURL forKey:@"baseURL"];
-    [aCoder encodeObject:self.requestSerializer forKey:@"requestSerializer"];
-    [aCoder encodeObject:self.responseSerializer forKey:@"responseSerializer"];
+- (void)encodeWithCoder:(NSCoder *)coder {
+    [coder encodeObject:self.baseURL forKey:NSStringFromSelector(@selector(baseURL))];
+    [coder encodeObject:self.requestSerializer forKey:NSStringFromSelector(@selector(requestSerializer))];
+    [coder encodeObject:self.responseSerializer forKey:NSStringFromSelector(@selector(responseSerializer))];
 }
 
 #pragma mark - NSCopying

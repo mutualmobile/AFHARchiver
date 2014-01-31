@@ -2,6 +2,8 @@
   <img src="https://raw.github.com/AFNetworking/AFNetworking/assets/afnetworking-logo.png" alt="AFNetworking" title="AFNetworking">
 </p>
 
+[![Build Status](https://travis-ci.org/AFNetworking/AFNetworking.png)](https://travis-ci.org/AFNetworking/AFNetworking)
+
 AFNetworking is a delightful networking library for iOS and Mac OS X. It's built on top of the [Foundation URL Loading System](http://developer.apple.com/library/mac/#documentation/Cocoa/Conceptual/URLLoadingSystem/URLLoadingSystem.html), extending the powerful high-level networking abstractions built into Cocoa. It has a modular architecture with well-designed, feature-rich APIs that are a joy to use.
 
 Perhaps the most important feature of all, however, is the amazing community of developers who use and contribute to AFNetworking every day. AFNetworking powers some of the most popular and critically-acclaimed apps on the iPhone, iPad, and Mac.
@@ -12,7 +14,7 @@ Choose AFNetworking for your next project, or migrate over your existing project
 
 - [Download AFNetworking](https://github.com/AFNetworking/AFNetworking/archive/master.zip) and try out the included Mac and iPhone example apps
 - Read the ["Getting Started" guide](https://github.com/AFNetworking/AFNetworking/wiki/Getting-Started-with-AFNetworking), [FAQ](https://github.com/AFNetworking/AFNetworking/wiki/AFNetworking-FAQ), or [other articles on the Wiki](https://github.com/AFNetworking/AFNetworking/wiki)
-- Check out the [documentation](http://cocoadocs.org/docsets/AFNetworking/) for a comprehensive look at all of the APIs available in AFNetworking
+- Check out the [documentation](http://cocoadocs.org/docsets/AFNetworking/2.0.0/) for a comprehensive look at all of the APIs available in AFNetworking
 - Questions? [Stack Overflow](http://stackoverflow.com/questions/tagged/afnetworking) is the best place to find answers
 
 ### Installation with CocoaPods
@@ -85,6 +87,8 @@ For compatibility with iOS 4.3 or Mac OS X 10.6, use the [latest 0.10.x release]
 
 ### HTTP Request Operation Manager
 
+`AFHTTPRequestOperationManager` encapsulates the common patterns of communicating with a web application over HTTP, including request creation, response serialization, network reachability monitoring, and security, as well as request operation management.
+
 #### `GET` Request
 
 ```objective-c
@@ -127,6 +131,8 @@ NSURL *filePath = [NSURL fileURLWithPath:@"file://path/to/image.png"];
 
 ### AFURLSessionManager
 
+`AFURLSessionManager` creates and manages an `NSURLSession` object based on a specified `NSURLSessionConfiguration` object, which conforms to `<NSURLSessionTaskDelegate>`, `<NSURLSessionDataDelegate>`, `<NSURLSessionDownloadDelegate>`, and `<NSURLSessionDelegate>`.
+
 #### Creating a Download Task
 
 ```objective-c
@@ -137,8 +143,8 @@ NSURL *URL = [NSURL URLWithString:@"http://example.com/download.zip"];
 NSURLRequest *request = [NSURLRequest requestWithURL:URL];
 
 NSURLSessionDownloadTask *downloadTask = [manager downloadTaskWithRequest:request progress:nil destination:^NSURL *(NSURL *targetPath, NSURLResponse *response) {
-    NSURL *documentsDirectoryPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
-    return [documentsDirectoryPath URLByAppendingPathComponent:[targetPath lastPathComponent]];
+    NSURL *documentsDirectoryPath = [NSURL fileURLWithPath:[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) firstObject]];
+    return [documentsDirectoryPath URLByAppendingPathComponent:[response suggestedFilename]];
 } completionHandler:^(NSURLResponse *response, NSURL *filePath, NSError *error) {
     NSLog(@"File downloaded to: %@", filePath);
 }];
@@ -165,6 +171,27 @@ NSURLSessionUploadTask *uploadTask = [manager uploadTaskWithRequest:request from
 [uploadTask resume];
 ```
 
+#### Creating an Upload Task for a Multi-Part Request, with Progress
+
+```objective-c
+    NSMutableURLRequest *request = [[AFHTTPRequestSerializer serializer] multipartFormRequestWithMethod:@"POST" URLString:@"http://example.com/upload" parameters:nil constructingBodyWithBlock:^(id<AFMultipartFormData> formData) {
+        [formData appendPartWithFileURL:[NSURL fileURLWithPath:@"file://path/to/image.jpg"] name:@"file" fileName:@"filename.jpg" mimeType:@"image/jpeg" error:nil];
+    } error:nil];
+
+    AFURLSessionManager *manager = [[AFURLSessionManager alloc] initWithSessionConfiguration:[NSURLSessionConfiguration defaultSessionConfiguration]];
+    NSProgress *progress = nil;
+
+    NSURLSessionUploadTask *uploadTask = [manager uploadTaskWithStreamedRequest:request progress:&progress completionHandler:^(NSURLResponse *response, id responseObject, NSError *error) {
+        if (error) {
+            NSLog(@"Error: %@", error);
+        } else {
+            NSLog(@"%@ %@", response, responseObject);
+        }
+    }];
+
+    [uploadTask resume];
+```
+
 #### Creating a Data Task
 
 ```objective-c
@@ -188,6 +215,8 @@ NSURLSessionDataTask *dataTask = [manager dataTaskWithRequest:request completion
 
 ### Request Serialization
 
+Request serializers create requests from URL strings, encoding parameters as either a query string or HTTP body.
+
 ```objective-c
 NSString *URLString = @"http://example.com";
 NSDictionary *parameters = @{@"foo": @"bar", @"baz": @[@1, @2, @3]};
@@ -207,7 +236,7 @@ NSDictionary *parameters = @{@"foo": @"bar", @"baz": @[@1, @2, @3]};
 [[AFHTTPRequestSerializer serializer] requestWithMethod:@"POST" URLString:URLString parameters:parameters];
 ```
 
-    GET http://example.com/
+    POST http://example.com/
     Content-Type: application/x-www-form-urlencoded
 
     foo=bar&baz[]=1&baz[]=2&baz[]=3
@@ -227,6 +256,8 @@ NSDictionary *parameters = @{@"foo": @"bar", @"baz": @[@1, @2, @3]};
 
 ### Network Reachability Manager
 
+`AFNetworkReachabilityManager` monitors the reachability of domains, and addresses for both WWAN and WiFi network interfaces.
+
 #### Shared Network Reachability
 
 ```objective-c
@@ -236,6 +267,8 @@ NSDictionary *parameters = @{@"foo": @"bar", @"baz": @[@1, @2, @3]};
 ```
 
 #### HTTP Manager with Base URL
+
+When a `baseURL` is provided, network reachability is scoped to the host of that base URL.
 
 ```objective-c
 NSURL *baseURL = [NSURL URLWithString:@"http://example.com/"];
@@ -260,6 +293,10 @@ NSOperationQueue *operationQueue = manager.operationQueue;
 
 ### Security Policy
 
+`AFSecurityPolicy` evaluates server trust against pinned X.509 certificates and public keys over secure connections.
+
+Adding pinned SSL certificates to your app helps prevent man-in-the-middle attacks and other vulnerabilities. Applications dealing with sensitive customer data or financial information are strongly encouraged to route all communication over an HTTPS connection with SSL pinning configured and enabled.
+
 #### Allowing Invalid SSL Certificates
 
 ```objective-c
@@ -270,6 +307,10 @@ manager.securityPolicy.allowInvalidCertificates = YES; // not recommended for pr
 ---
 
 ### AFHTTPRequestOperation
+
+`AFHTTPRequestOperation` is a subclass of `AFURLConnectionOperation` for requests using the HTTP or HTTPS protocols. It encapsulates the concept of acceptable status codes and content types, which determine the success or failure of a request.
+
+Although `AFHTTPRequestOperationManager` is usually the best way to go about making requests, `AFHTTPRequestOperation` can be used by itself.
 
 #### `GET` with `AFHTTPRequestOperation`
 

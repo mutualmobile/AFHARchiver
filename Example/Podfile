@@ -1,5 +1,5 @@
 platform :ios, :deployment_target => '7.0'
 
-pod 'AFNetworking', '2.0.0'
-pod 'AFNetworking/UIKit', '2.0.0'
-pod 'AFNetworking/NSURLSession', '2.0.0'
+pod 'AFNetworking', '2.1.0'
+pod 'AFNetworking/UIKit', '2.1.0'
+pod 'AFNetworking/NSURLSession', '2.1.0'

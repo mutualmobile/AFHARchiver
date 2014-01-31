@@ -365,13 +365,13 @@ typedef BOOL (^AFHARchiverShouldArchiveTaskBlock)(NSURLSessionTask *task, id<AFU
         [[NSNotificationCenter defaultCenter]
          addObserver:self
          selector:@selector(taskDidStart:)
-         name:AFNetworkingTaskDidStartNotification
+         name:AFNetworkingTaskDidResumeNotification
          object:nil];
         
         [[NSNotificationCenter defaultCenter]
          addObserver:self
          selector:@selector(taskDidFinish:)
-         name:AFNetworkingTaskDidFinishNotification
+         name:AFNetworkingTaskDidCompleteNotification
          object:nil];
         
         self.isArchiving = YES;
@@ -392,12 +392,12 @@ typedef BOOL (^AFHARchiverShouldArchiveTaskBlock)(NSURLSessionTask *task, id<AFU
         
         [[NSNotificationCenter defaultCenter]
          removeObserver:self
-         name:AFNetworkingTaskDidStartNotification
+         name:AFNetworkingTaskDidResumeNotification
          object:nil];
         
         [[NSNotificationCenter defaultCenter]
          removeObserver:self
-         name:AFNetworkingTaskDidFinishNotification
+         name:AFNetworkingTaskDidCompleteNotification
          object:nil];
         
         self.isArchiving = NO;
@@ -488,9 +488,9 @@ typedef BOOL (^AFHARchiverShouldArchiveTaskBlock)(NSURLSessionTask *task, id<AFU
 -(void)taskDidFinish:(NSNotification*)notification{
     NSURLSessionTask * task = [notification object];
     NSString * taskID = [NSString stringWithFormat:@"%d",[task taskIdentifier]];
-    id responseSerializer = notification.userInfo[AFNetworkingTaskDidFinishResponseSerializerKey];
-    NSData * responseData = notification.userInfo[AFNetworkingTaskDidFinishResponseDataKey];
-    id serializedResponse = notification.userInfo[AFNetworkingTaskDidFinishSerializedResponseKey];
+    id responseSerializer = notification.userInfo[AFNetworkingTaskDidCompleteResponseSerializerKey];
+    NSData * responseData = notification.userInfo[AFNetworkingTaskDidCompleteResponseDataKey];
+    id serializedResponse = notification.userInfo[AFNetworkingTaskDidCompleteSerializedResponseKey];
     [self.taskEndTimeTrackingTable setValue:[NSDate date] forKey:taskID];
     if([self shouldArchiveTask:task responseSerializer:responseSerializer serializedResponse:serializedResponse]){
         [self archiveTask:task responseData:responseData];

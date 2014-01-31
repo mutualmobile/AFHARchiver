@@ -42,8 +42,8 @@
  @return A serialized request.
  */
 - (NSURLRequest *)requestBySerializingRequest:(NSURLRequest *)request
-                               withParameters:(NSDictionary *)parameters
-                                        error:(NSError *__autoreleasing *)error;
+                               withParameters:(id)parameters
+                                        error:(NSError * __autoreleasing *)error;
 
 @end
 
@@ -59,9 +59,9 @@ typedef NS_ENUM(NSUInteger, AFHTTPRequestQueryStringSerializationStyle) {
 @protocol AFMultipartFormData;
 
 /**
- `AFHTTPSerializer` conforms to the `AFURLRequestSerialization` & `AFURLResponseSerialization` protocols, offering a concrete base implementation of query string / URL form-encoded parameter serialization and default request headers, as well as response status code and content type validation.
+ `AFHTTPRequestSerializer` conforms to the `AFURLRequestSerialization` & `AFURLResponseSerialization` protocols, offering a concrete base implementation of query string / URL form-encoded parameter serialization and default request headers, as well as response status code and content type validation.
 
- Any request or response serializer dealing with HTTP is encouraged to subclass `AFHTTPSerializer` in order to ensure consistent default behavior.
+ Any request or response serializer dealing with HTTP is encouraged to subclass `AFHTTPRequestSerializer` in order to ensure consistent default behavior.
  */
 @interface AFHTTPRequestSerializer : NSObject <AFURLRequestSerialization>
 
@@ -90,7 +90,8 @@ typedef NS_ENUM(NSUInteger, AFHTTPRequestQueryStringSerializationStyle) {
  @param field The HTTP header to set a default value for
  @param value The value set as default for the specified header, or `nil`
  */
-- (void)setValue:(NSString *)value forHTTPHeaderField:(NSString *)field;
+- (void)setValue:(NSString *)value
+forHTTPHeaderField:(NSString *)field;
 
 /**
  Sets the "Authorization" HTTP header set in request objects made by the HTTP client to a basic authentication value with Base64-encoded username and password. This overwrites any existing value for this header.
@@ -137,11 +138,18 @@ typedef NS_ENUM(NSUInteger, AFHTTPRequestQueryStringSerializationStyle) {
 
  @param block A block that defines a process of encoding parameters into a query string. This block returns the query string and takes three arguments: the request, the parameters to encode, and the error that occurred when attempting to encode parameters for the given request.
  */
-- (void)setQueryStringSerializationWithBlock:(NSString * (^)(NSURLRequest *request, NSDictionary *parameters, NSError *__autoreleasing *error))block;
+- (void)setQueryStringSerializationWithBlock:(NSString * (^)(NSURLRequest *request, NSDictionary *parameters, NSError * __autoreleasing *error))block;
 
 ///-------------------------------
 /// @name Creating Request Objects
 ///-------------------------------
+
+/**
+ @deprecated This method has been deprecated. Use -requestWithMethod:URLString:parameters:error: instead.
+ */
+- (NSMutableURLRequest *)requestWithMethod:(NSString *)method
+                                 URLString:(NSString *)URLString
+                                parameters:(NSDictionary *)parameters DEPRECATED_ATTRIBUTE;
 
 /**
  Creates an `NSMutableURLRequest` object with the specified HTTP method and URL string.
@@ -151,12 +159,22 @@ typedef NS_ENUM(NSUInteger, AFHTTPRequestQueryStringSerializationStyle) {
  @param method The HTTP method for the request, such as `GET`, `POST`, `PUT`, or `DELETE`. This parameter must not be `nil`.
  @param URLString The URL string used to create the request URL.
  @param parameters The parameters to be either set as a query string for `GET` requests, or the request HTTP body.
+ @param error The error that occured while constructing the request.
 
  @return An `NSMutableURLRequest` object.
  */
 - (NSMutableURLRequest *)requestWithMethod:(NSString *)method
                                  URLString:(NSString *)URLString
-                                parameters:(NSDictionary *)parameters;
+                                parameters:(NSDictionary *)parameters
+                                     error:(NSError * __autoreleasing *)error;
+
+/**
+ @deprecated This method has been deprecated. Use -multipartFormRequestWithMethod:URLString:parameters:constructingBodyWithBlock:error: instead.
+ */
+- (NSMutableURLRequest *)multipartFormRequestWithMethod:(NSString *)method
+                                              URLString:(NSString *)URLString
+                                             parameters:(NSDictionary *)parameters
+                              constructingBodyWithBlock:(void (^)(id <AFMultipartFormData> formData))block DEPRECATED_ATTRIBUTE;
 
 /**
  Creates an `NSMutableURLRequest` object with the specified HTTP method and URLString, and constructs a `multipart/form-data` HTTP body, using the specified parameters and multipart form data block. See http://www.w3.org/TR/html4/interact/forms.html#h-17.13.4.2
@@ -167,13 +185,15 @@ typedef NS_ENUM(NSUInteger, AFHTTPRequestQueryStringSerializationStyle) {
  @param URLString The URL string used to create the request URL.
  @param parameters The parameters to be encoded and set in the request HTTP body.
  @param block A block that takes a single argument and appends data to the HTTP body. The block argument is an object adopting the `AFMultipartFormData` protocol.
+ @param error The error that occured while constructing the request.
 
  @return An `NSMutableURLRequest` object
  */
 - (NSMutableURLRequest *)multipartFormRequestWithMethod:(NSString *)method
                                               URLString:(NSString *)URLString
                                              parameters:(NSDictionary *)parameters
-                              constructingBodyWithBlock:(void (^)(id <AFMultipartFormData> formData))block;
+                              constructingBodyWithBlock:(void (^)(id <AFMultipartFormData> formData))block
+                                                  error:(NSError * __autoreleasing *)error;
 
 @end
 
