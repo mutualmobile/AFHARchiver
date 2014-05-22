@@ -479,7 +479,7 @@ typedef BOOL (^AFHARchiverShouldArchiveTaskBlock)(NSURLSessionTask *task, id<AFU
 #pragma mark - Private NSURLSessionTask Methods
 -(void)taskDidStart:(NSNotification*)notification{
     NSURLSessionTask * task = [notification object];
-    NSString * taskID = [NSString stringWithFormat:@"%d",[task taskIdentifier]];
+    NSString * taskID = [NSString stringWithFormat:@"%lu",(unsigned long)[task taskIdentifier]];
     if(![self.taskStartTimeTrackingTable valueForKey:taskID]){
         [self.taskStartTimeTrackingTable setValue:[NSDate date] forKey:taskID];
     }
@@ -487,7 +487,7 @@ typedef BOOL (^AFHARchiverShouldArchiveTaskBlock)(NSURLSessionTask *task, id<AFU
 
 -(void)taskDidFinish:(NSNotification*)notification{
     NSURLSessionTask * task = [notification object];
-    NSString * taskID = [NSString stringWithFormat:@"%d",[task taskIdentifier]];
+    NSString * taskID = [NSString stringWithFormat:@"%lu",(unsigned long)[task taskIdentifier]];
     id responseSerializer = notification.userInfo[AFNetworkingTaskDidCompleteResponseSerializerKey];
     NSData * responseData = notification.userInfo[AFNetworkingTaskDidCompleteResponseDataKey];
     id serializedResponse = notification.userInfo[AFNetworkingTaskDidCompleteSerializedResponseKey];
@@ -509,7 +509,7 @@ typedef BOOL (^AFHARchiverShouldArchiveTaskBlock)(NSURLSessionTask *task, id<AFU
     NSDictionary * requestDictionary = AFHTTPArchiveRequestDictionaryForRequest(currentRequest);
     NSDictionary * responseDictionary = AFHTTPArchiveResponseDictionaryForResponse(redirectResponse, nil);
     
-    NSString * taskID = [NSString stringWithFormat:@"%d",[task taskIdentifier]];
+    NSString * taskID = [NSString stringWithFormat:@"%lu",(unsigned long)[task taskIdentifier]];
     NSDate * startTime = [self.taskStartTimeTrackingTable valueForKey:taskID];
     if(!startTime){
         startTime = endTime;
@@ -533,7 +533,7 @@ typedef BOOL (^AFHARchiverShouldArchiveTaskBlock)(NSURLSessionTask *task, id<AFU
 }
 
 -(void)archiveTask:(NSURLSessionTask*)task responseData:(NSData*)responseData{
-    NSString * taskID = [NSString stringWithFormat:@"%d",[task taskIdentifier]];
+    NSString * taskID = [NSString stringWithFormat:@"%lu",(unsigned long)[task taskIdentifier]];
     NSDate * startTime = [self.taskStartTimeTrackingTable valueForKey:taskID];
     NSDate * endTime = [self.taskEndTimeTrackingTable valueForKey:taskID];
     NSDictionary * dictionary = AFHTTPArchiveEntryDictionaryForTask(task,responseData, startTime, endTime);
