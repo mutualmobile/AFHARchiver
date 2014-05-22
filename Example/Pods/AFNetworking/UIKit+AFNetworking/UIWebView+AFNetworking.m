@@ -1,6 +1,6 @@
 // UIWebView+AFNetworking.m
 //
-// Copyright (c) 2013 AFNetworking (http://afnetworking.com)
+// Copyright (c) 2013-2014 AFNetworking (http://afnetworking.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -27,10 +27,8 @@
 #if defined(__IPHONE_OS_VERSION_MIN_REQUIRED)
 
 #import "AFHTTPRequestOperation.h"
-
-static char kAFRequestSerializerKey;
-static char kAFResponseSerializerKey;
-static char kAFHTTPRequestOperationKey;
+#import "AFURLResponseSerialization.h"
+#import "AFURLRequestSerialization.h"
 
 @interface UIWebView (_AFNetworking)
 @property (readwrite, nonatomic, strong, setter = af_setHTTPRequestOperation:) AFHTTPRequestOperation *af_HTTPRequestOperation;
@@ -39,11 +37,11 @@ static char kAFHTTPRequestOperationKey;
 @implementation UIWebView (_AFNetworking)
 
 - (AFHTTPRequestOperation *)af_HTTPRequestOperation {
-    return (AFHTTPRequestOperation *)objc_getAssociatedObject(self, &kAFHTTPRequestOperationKey);
+    return (AFHTTPRequestOperation *)objc_getAssociatedObject(self, @selector(af_HTTPRequestOperation));
 }
 
 - (void)af_setHTTPRequestOperation:(AFHTTPRequestOperation *)operation {
-    objc_setAssociatedObject(self, &kAFHTTPRequestOperationKey, operation, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(self, @selector(af_HTTPRequestOperation), operation, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 @end
@@ -61,12 +59,12 @@ static char kAFHTTPRequestOperationKey;
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wgnu"
-    return objc_getAssociatedObject(self, &kAFRequestSerializerKey) ?: _af_defaultRequestSerializer;
+    return objc_getAssociatedObject(self, @selector(requestSerializer)) ?: _af_defaultRequestSerializer;
 #pragma clang diagnostic pop
 }
 
 - (void)setRequestSerializer:(AFHTTPRequestSerializer<AFURLRequestSerialization> *)requestSerializer {
-    objc_setAssociatedObject(self, &kAFRequestSerializerKey, requestSerializer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(self, @selector(requestSerializer), requestSerializer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 - (AFHTTPResponseSerializer <AFURLResponseSerialization> *)responseSerializer {
@@ -78,12 +76,12 @@ static char kAFHTTPRequestOperationKey;
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wgnu"
-    return objc_getAssociatedObject(self, &kAFRequestSerializerKey) ?: _af_defaultResponseSerializer;
+    return objc_getAssociatedObject(self, @selector(responseSerializer)) ?: _af_defaultResponseSerializer;
 #pragma clang diagnostic pop
 }
 
 - (void)setResponseSerializer:(AFHTTPResponseSerializer<AFURLResponseSerialization> *)responseSerializer {
-    objc_setAssociatedObject(self, &kAFResponseSerializerKey, responseSerializer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(self, @selector(responseSerializer), responseSerializer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 #pragma mark -

@@ -1,6 +1,6 @@
 // UIWebView+AFNetworking.h
 //
-// Copyright (c) 2013 AFNetworking (http://afnetworking.com)
+// Copyright (c) 2013-2014 AFNetworking (http://afnetworking.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -28,11 +28,13 @@
 
 #import <UIKit/UIKit.h>
 
-#import "AFURLRequestSerialization.h"
-#import "AFURLResponseSerialization.h"
+@class AFHTTPRequestSerializer, AFHTTPResponseSerializer;
+@protocol AFURLRequestSerialization, AFURLResponseSerialization;
 
 /**
  This category adds methods to the UIKit framework's `UIWebView` class. The methods in this category provide increased control over the request cycle, including progress monitoring and success / failure handling.
+ 
+ @discussion When using these category methods, make sure to assign `delegate` for the web view, which implements `–webView:shouldStartLoadWithRequest:navigationType:` appropriately. This allows for tapped links to be loaded through AFNetworking, and can ensure that `canGoBack` & `canGoForward` update their values correctly.
  */
 @interface UIWebView (AFNetworking)
 
