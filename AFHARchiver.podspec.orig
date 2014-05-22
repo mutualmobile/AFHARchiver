@@ -6,7 +6,11 @@ Pod::Spec.new do |s|
     'Kevin Harwood' => 'kevin.harwood@mutualmobile.com'
   }
   s.homepage = 'https://github.com/mutualmobile/AFHARchiver'
+<<<<<<< HEAD
   s.source       = { :git => "https://github.com/mutualmobile/AFHARchiver.git", :tag => "0.2.2" }
+=======
+  s.source       = { :git => "https://github.com/mutualmobile/AFHARchiver.git", :tag => "0.2.1" }
+>>>>>>> 04c6c81c48922fa554bd2b0cf4a82775e00b0436
   s.source_files = 'AFHARchiver'
   s.license		   = {
     :type => 'MIT',
@@ -15,6 +19,12 @@ Pod::Spec.new do |s|
   s.requires_arc = true
   s.ios.deployment_target = '7.0'
   s.osx.deployment_target = '10.9'
+<<<<<<< HEAD
   s.dependency 'AFNetworking', '~> 2.1'
   s.dependency 'AFNetworking/NSURLSession', '~> 2.1'
 end
+=======
+  s.dependency 'AFNetworking', '~> 2.1.0'
+  s.dependency 'AFNetworking/NSURLSession', '~> 2.1.0'
+end
+>>>>>>> 04c6c81c48922fa554bd2b0cf4a82775e00b0436
